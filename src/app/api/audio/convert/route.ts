@@ -85,8 +85,9 @@ export async function POST(request: NextRequest) {
       const result = await processDocumentToAudio(
         document.textContent,
         voiceProfile.sdkVoice,
-        1.0,
-        outputFileName
+        voiceProfile.ttsSpeed,
+        outputFileName,
+        voiceProfile.pitchShift
       );
 
       // Update audio file record with results

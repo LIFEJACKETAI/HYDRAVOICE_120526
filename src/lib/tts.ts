@@ -1,6 +1,10 @@
 import ZAI from 'z-ai-web-dev-sdk';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { concatenateWavBuffers, pitchShiftWav } from './audio-utils';
+import { concatenateWavBuffers, pitchShiftWav } from './audio-utils';
+import { concatenateWavBuffers, pitchShiftWav } from './audio-utils';
+import { concatenateWavBuffers, pitchShiftWav } from './audio-utils';
 
 // ─── Singleton SDK Instance ────────────────────────────────────────
 
@@ -96,7 +100,7 @@ export async function textToAudio(
 
 /**
  * Process a long document by chunking text, generating audio for each chunk,
- * and concatenating the results into a single WAV file.
+ * properly concatenating WAV data, applying pitch shift, and saving to disk.
  *
  * Returns the file path of the generated audio file.
  */
@@ -104,7 +108,8 @@ export async function processDocumentToAudio(
   text: string,
   voice: string = 'kazi',
   speed: number = 1.0,
-  outputFileName: string
+  outputFileName: string,
+  pitchShift: number = 1.0
 ): Promise<{ filePath: string; fileSize: number; duration: number }> {
   const outputDir = path.join(process.cwd(), 'audio-output');
   await mkdir(outputDir, { recursive: true });
@@ -116,20 +121,30 @@ export async function processDocumentToAudio(
 
   const audioBuffers: Buffer[] = [];
 
+  // Generate TTS at effectiveSpeed = speed * pitchShift so that after
+  // resampling (stretching by pitchShift), final playback speed is just `speed`
+  const effectiveSpeed = speed * pitchShift;
+  console.log(`[TTS] Processing ${chunks.length} chunks, voice=${voice}, speed=${speed}, pitchShift=${pitchShift}, effectiveSpeed=${effectiveSpeed.toFixed(3)}`);
+
   for (let i = 0; i < chunks.length; i++) {
-    console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
-    const audioBuffer = await textToAudio(chunks[i], voice, speed);
+    console.log(`[TTS] Chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+    const audioBuffer = await textToAudio(chunks[i], voice, effectiveSpeed);
     audioBuffers.push(audioBuffer);
   }
 
-  // Concatenate all audio buffers
-  const combinedBuffer = Buffer.concat(audioBuffers);
-  const filePath = path.join(outputDir, outputFileName);
+  // Properly concatenate WAV chunks (strips per-chunk headers, writes one clean header)
+  let combinedBuffer = concatenateWavBuffers(audioBuffers);
 
+  // Apply pitch shifting via linear interpolation resampling (always outputs 24000 Hz)
+  if (pitchShift > 1.01) {
+    combinedBuffer = pitchShiftWav(combinedBuffer, pitchShift);
+  }
+
+  const filePath = path.join(outputDir, outputFileName);
   await writeFile(filePath, combinedBuffer);
 
-  // Estimate duration: WAV at 24kHz 16-bit mono ≈ 48KB per second
-  const estimatedDurationSeconds = combinedBuffer.length / 48000;
+  // Duration: 24000 Hz, 16-bit mono = 48000 bytes/sec; subtract 44-byte WAV header
+  const estimatedDurationSeconds = (combinedBuffer.length - 44) / 48000;
 
   return {
     filePath,

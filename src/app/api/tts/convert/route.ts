@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 import { concatenateWavBuffers, pitchShiftWav } from '@/lib/audio-utils';
+import { getVoiceById } from '@/lib/voices';
+import { getVoiceById } from '@/lib/voices';
+import { getVoiceById } from '@/lib/voices';
 
 // ─── Plan-based character limits ───────────────────────────────────
 
@@ -80,7 +83,7 @@ function splitTextIntoChunks(text: string, maxLength: number = MAX_CHUNK_LENGTH)
  * so the output is always at 24000 Hz (full quality) instead of the old
  * sample-rate-manipulation method that produced muffled 15000-17000 Hz audio.
  *
- * Request body: { text: string, voice: string, speed?: number, pitchShift?: number }
+ * Request body: { text: string, voiceId: string }
  * Returns: audio/wav binary at 24000 Hz
  */
 export async function POST(request: NextRequest) {
@@ -107,11 +110,27 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { text, voice = 'kazi', speed = 1.0, pitchShift = 1.0 } = body;
+    const { text, voiceId } = body;
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
+
+    // Resolve voice profile server-side — client never controls speed or pitch
+    if (!voiceId) {
+      return NextResponse.json({ error: 'voiceId is required' }, { status: 400 });
+    }
+    const voiceProfile = getVoiceById(voiceId);
+    if (!voiceProfile) {
+      return NextResponse.json(
+        { error: `Invalid voiceId: ${voiceId}. Please select from available voices.` },
+        { status: 400 }
+      );
+    }
+
+    const voice = voiceProfile.sdkVoice;
+    const speed = voiceProfile.ttsSpeed;
+    const pitchShift = voiceProfile.pitchShift;
 
     // Enforce character limit
     if (text.trim().length > charLimit) {
@@ -133,26 +152,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate voice — only English-capable SDK voices are allowed
-    const validVoices = ['jam', 'kazi'];
-    if (!validVoices.includes(voice)) {
-      return NextResponse.json(
-        { error: `Invalid voice: ${voice}. Available English voices: ${validVoices.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Calculate effective speed for TTS generation
-    // We generate at (speed * pitchShift) so that after resampling (stretching by pitchShift),
-    // the final playback speed is just `speed` and pitch is lowered by pitchShift
+    // Calculate effective speed: generate at (speed * pitchShift) so that after
+    // resampling (stretching by pitchShift), final playback speed is just `speed`
     const effectiveSpeed = speed * pitchShift;
 
-    // Cap effective speed to ensure clean TTS output
-    // The TTS model produces garbled output above ~1.5x
+    // All curated voice profiles are designed to stay within this range,
+    // but guard against future profile mistakes
     if (effectiveSpeed < 0.5 || effectiveSpeed > 1.5) {
       return NextResponse.json(
-        { error: `Effective speed (${effectiveSpeed.toFixed(2)}) out of range. Adjust speed or pitch shift. Must be 0.5-1.5.` },
-        { status: 400 }
+        { error: `Voice profile "${voiceProfile.name}" has an invalid effective speed (${effectiveSpeed.toFixed(2)}). Must be 0.5–1.5.` },
+        { status: 500 }
       );
     }
 
@@ -212,7 +221,7 @@ export async function POST(request: NextRequest) {
       combinedBuffer = pitchShiftWav(combinedBuffer, pitchShift);
     }
 
-    console.log(`[TTS Convert] Complete: ${combinedBuffer.length} bytes, ${chunks.length} chunks, pitchShift=${pitchShift}, output=24000Hz`);
+    console.log(`[TTS Convert] Complete: ${combinedBuffer.length} bytes, ${chunks.length} chunks, voice=${voiceProfile.name} (${voice}), speed=${speed}, pitchShift=${pitchShift}, output=24000Hz`);
 
     return new NextResponse(combinedBuffer, {
       status: 200,

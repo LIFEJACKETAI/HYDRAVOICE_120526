@@ -172,7 +172,7 @@ export async function convertTextToAudio(
   });
 
   try {
-    console.log(`[TTS Convert] Starting conversion: ${text.length} chars, voice: ${voiceProfile.sdkVoice} (speed: ${voiceProfile.ttsSpeed}, pitchShift: ${voiceProfile.pitchShift})`);
+    console.log(`[TTS Convert] Starting conversion: ${text.length} chars, voiceId: ${voiceId} (${voiceProfile.sdkVoice}, speed: ${voiceProfile.ttsSpeed}, pitchShift: ${voiceProfile.pitchShift})`);
 
     // Include user role header if authenticated (session cookie is sent automatically)
     const { user } = useAppStore.getState();
@@ -189,9 +189,7 @@ export async function convertTextToAudio(
       credentials: 'include',
       body: JSON.stringify({
         text: text.trim(),
-        voice: voiceProfile.sdkVoice,
-        speed: voiceProfile.ttsSpeed || 1.0,
-        pitchShift: voiceProfile.pitchShift || 1.0,
+        voiceId,
       }),
     });
 
