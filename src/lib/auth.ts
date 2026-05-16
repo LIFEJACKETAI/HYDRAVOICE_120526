@@ -9,7 +9,7 @@ import { env } from '@/lib/env';
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
   secret: env.NEXTAUTH_SECRET,
   pages: {
@@ -27,28 +27,11 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email and password are required');
         }
-
-        const user = await db.user.findUnique({
-          where: { email: credentials.email },
-        });
-
-        if (!user || !user.passwordHash) {
-          throw new Error('Invalid email or password');
-        }
-
+        const user = await db.user.findUnique({ where: { email: credentials.email } });
+        if (!user || !user.passwordHash) throw new Error('Invalid email or password');
         const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!isValid) {
-          throw new Error('Invalid email or password');
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-          plan: user.plan,
-        };
+        if (!isValid) throw new Error('Invalid email or password');
+        return { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role, plan: user.plan };
       },
     }),
     ...(env.GOOGLE_ID && env.GOOGLE_SECRET
@@ -60,48 +43,52 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider && account.provider !== 'credentials' && user.email) {
-        const existingUser = await db.user.findUnique({
-          where: { email: user.email },
-        });
+      if (!account || account.provider === 'credentials') return true;
+      if (!user.email) return false;
 
-        if (!existingUser) {
-          const created = await db.user.create({
-            data: {
-              email: user.email,
-              name: user.name || null,
-              image: user.image || null,
-              oauthProvider: account.provider,
-              oauthId: account.providerAccountId,
-              role: 'user',
-              plan: 'free',
-            },
-          });
-          user.id = created.id;
-        } else {
-          user.id = existingUser.id;
-          if (!existingUser.oauthProvider) {
-            await db.user.update({
-              where: { id: existingUser.id },
-              data: {
-                oauthProvider: account.provider,
-                oauthId: account.providerAccountId,
-                image: user.image || existingUser.image,
-              },
-            });
-          }
-        }
+      const existingUser = await db.user.findUnique({ where: { email: user.email } });
+
+      if (!existingUser) {
+        await db.user.create({
+          data: {
+            email: user.email,
+            name: user.name || null,
+            image: user.image || null,
+            oauthProvider: account.provider,
+            oauthId: account.providerAccountId,
+            role: 'user',
+            plan: 'free',
+          },
+        });
+      } else if (!existingUser.oauthProvider) {
+        await db.user.update({
+          where: { id: existingUser.id },
+          data: {
+            oauthProvider: account.provider,
+            oauthId: account.providerAccountId,
+            image: user.image || existingUser.image,
+          },
+        });
       }
+
       return true;
     },
     async jwt({ token, user, account }) {
-      if (user) {
+      if (user && account && account.provider !== 'credentials') {
+        // OAuth sign-in: user.id is the provider's ID, look up our DB record by email
+        const dbUser = await db.user.findUnique({ where: { email: user.email! } });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.plan = dbUser.plan;
+        }
+      } else if (user) {
+        // Credentials sign-in: authorize() already returned our DB fields
         token.id = user.id;
         token.role = (user as any).role || 'user';
         token.plan = (user as any).plan || 'free';
-      }
-      // Refresh role/plan from DB on subsequent requests (not initial sign-in)
-      if (!account && !user && token.id) {
+      } else if (token.id) {
+        // Subsequent requests: refresh role/plan from DB
         const dbUser = await db.user.findUnique({ where: { id: token.id as string } });
         if (dbUser) {
           token.role = dbUser.role;
@@ -119,5 +106,4 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  debug: env.NODE_ENV === 'development',
 };
