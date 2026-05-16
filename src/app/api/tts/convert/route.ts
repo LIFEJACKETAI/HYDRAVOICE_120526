@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
       while (!audioBuffer && retries < maxRetries) {
         try {
           const response = await zai.audio.tts.create({
+            model: 'glm-tts',
             input: chunk,
             voice: voice,
             speed: effectiveSpeed,

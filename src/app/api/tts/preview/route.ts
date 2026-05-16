@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     console.log(`[TTS Preview] Generating: voiceId=${voiceId}, sdkVoice=${sdkVoice}, speed=${speed}, pitchShift=${pitchShift}, effectiveSpeed=${effectiveSpeed.toFixed(2)}`);
 
     const response = await zai.audio.tts.create({
+      model: 'glm-tts',
       input: previewText,
       voice: sdkVoice,
       speed: effectiveSpeed,
