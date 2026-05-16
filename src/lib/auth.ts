@@ -46,49 +46,57 @@ export const authOptions: NextAuthOptions = {
       if (!account || account.provider === 'credentials') return true;
       if (!user.email) return false;
 
-      const existingUser = await db.user.findUnique({ where: { email: user.email } });
+      try {
+        const existingUser = await db.user.findUnique({ where: { email: user.email } });
+        console.log('[auth] signIn OAuth', { email: user.email, provider: account.provider, existingUser: !!existingUser });
 
-      if (!existingUser) {
-        await db.user.create({
-          data: {
-            email: user.email,
-            name: user.name || null,
-            image: user.image || null,
-            oauthProvider: account.provider,
-            oauthId: account.providerAccountId,
-            role: 'user',
-            plan: 'free',
-          },
-        });
-      } else if (!existingUser.oauthProvider) {
-        await db.user.update({
-          where: { id: existingUser.id },
-          data: {
-            oauthProvider: account.provider,
-            oauthId: account.providerAccountId,
-            image: user.image || existingUser.image,
-          },
-        });
+        if (!existingUser) {
+          const created = await db.user.create({
+            data: {
+              email: user.email,
+              name: user.name || null,
+              image: user.image || null,
+              oauthProvider: account.provider,
+              oauthId: account.providerAccountId,
+              role: 'user',
+              plan: 'free',
+            },
+          });
+          console.log('[auth] signIn created user', created.id);
+        } else if (!existingUser.oauthProvider) {
+          await db.user.update({
+            where: { id: existingUser.id },
+            data: {
+              oauthProvider: account.provider,
+              oauthId: account.providerAccountId,
+              image: user.image || existingUser.image,
+            },
+          });
+          console.log('[auth] signIn linked OAuth to existing user', existingUser.id);
+        } else {
+          console.log('[auth] signIn existing OAuth user', existingUser.id);
+        }
+      } catch (err) {
+        console.error('[auth] signIn error', err);
+        return false;
       }
 
       return true;
     },
     async jwt({ token, user, account }) {
       if (user && account && account.provider !== 'credentials') {
-        // OAuth sign-in: user.id is the provider's ID, look up our DB record by email
         const dbUser = await db.user.findUnique({ where: { email: user.email! } });
+        console.log('[auth] jwt OAuth lookup by email', user.email, 'found:', !!dbUser);
         if (dbUser) {
           token.id = dbUser.id;
           token.role = dbUser.role;
           token.plan = dbUser.plan;
         }
       } else if (user) {
-        // Credentials sign-in: authorize() already returned our DB fields
         token.id = user.id;
         token.role = (user as any).role || 'user';
         token.plan = (user as any).plan || 'free';
       } else if (token.id) {
-        // Subsequent requests: refresh role/plan from DB
         const dbUser = await db.user.findUnique({ where: { id: token.id as string } });
         if (dbUser) {
           token.role = dbUser.role;
