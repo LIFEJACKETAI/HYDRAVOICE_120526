@@ -53,14 +53,12 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
-    GoogleProvider({
-      clientId: env.GOOGLE_ID,
-      clientSecret: env.GOOGLE_SECRET,
-    }),
-    MicrosoftProvider({
-      clientId: env.MICROSOFT_ID,
-      clientSecret: env.MICROSOFT_SECRET,
-    }),
+    ...(env.GOOGLE_ID && env.GOOGLE_SECRET
+      ? [GoogleProvider({ clientId: env.GOOGLE_ID, clientSecret: env.GOOGLE_SECRET })]
+      : []),
+    ...(env.MICROSOFT_ID && env.MICROSOFT_SECRET
+      ? [MicrosoftProvider({ clientId: env.MICROSOFT_ID, clientSecret: env.MICROSOFT_SECRET })]
+      : []),
   ],
   callbacks: {
     async jwt({ token, user, account }) {
