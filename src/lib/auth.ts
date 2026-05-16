@@ -15,9 +15,8 @@ export const authOptions: NextAuthOptions = {
   },
   secret: env.NEXTAUTH_SECRET,
   pages: {
-    signIn: '/auth/signin',
-    signUp: '/auth/signup',
-    error: '/auth/error',
+    signIn: '/',
+    error: '/',
   },
   providers: [
     CredentialsProvider({
@@ -91,26 +90,15 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async signIn({ user, account, profile }) {
-      // For OAuth providers, store provider info
-      if (account?.provider && user.email) {
+    async signIn({ user, account }) {
+      // PrismaAdapter handles user + account creation for OAuth.
+      // Only patch custom fields (oauthProvider/oauthId) on existing users
+      // that signed up with credentials and are now linking an OAuth provider.
+      if (account?.provider && account.provider !== 'credentials' && user.email) {
         const existingUser = await db.user.findUnique({
           where: { email: user.email },
         });
-
-        if (!existingUser) {
-          // Create user with OAuth info
-          await db.user.create({
-            data: {
-              email: user.email,
-              name: user.name || null,
-              image: user.image || null,
-              oauthProvider: account.provider,
-              oauthId: account.providerAccountId,
-            },
-          });
-        } else if (!existingUser.oauthProvider) {
-          // Link OAuth to existing user
+        if (existingUser && !existingUser.oauthProvider) {
           await db.user.update({
             where: { id: existingUser.id },
             data: {
