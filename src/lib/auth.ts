@@ -2,13 +2,11 @@ import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import MicrosoftProvider from 'next-auth/providers/azure-ad';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -47,6 +45,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          image: user.image,
           role: user.role,
           plan: user.plan,
         };
@@ -60,26 +59,55 @@ export const authOptions: NextAuthOptions = {
       : []),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider && account.provider !== 'credentials' && user.email) {
+        const existingUser = await db.user.findUnique({
+          where: { email: user.email },
+        });
+
+        if (!existingUser) {
+          const created = await db.user.create({
+            data: {
+              email: user.email,
+              name: user.name || null,
+              image: user.image || null,
+              oauthProvider: account.provider,
+              oauthId: account.providerAccountId,
+              role: 'user',
+              plan: 'free',
+            },
+          });
+          user.id = created.id;
+        } else {
+          user.id = existingUser.id;
+          if (!existingUser.oauthProvider) {
+            await db.user.update({
+              where: { id: existingUser.id },
+              data: {
+                oauthProvider: account.provider,
+                oauthId: account.providerAccountId,
+                image: user.image || existingUser.image,
+              },
+            });
+          }
+        }
+      }
+      return true;
+    },
     async jwt({ token, user, account }) {
-      // Initial sign in
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || 'user';
         token.plan = (user as any).plan || 'free';
       }
-
-      // For OAuth providers, update user info from DB on subsequent requests
-      if (account?.provider && token.email) {
-        const dbUser = await db.user.findUnique({
-          where: { email: token.email },
-        });
+      // Refresh role/plan from DB on subsequent requests (not initial sign-in)
+      if (!account && !user && token.id) {
+        const dbUser = await db.user.findUnique({ where: { id: token.id as string } });
         if (dbUser) {
-          token.id = dbUser.id;
           token.role = dbUser.role;
           token.plan = dbUser.plan;
         }
       }
-
       return token;
     },
     async session({ session, token }) {
@@ -89,41 +117,6 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).plan = token.plan as string;
       }
       return session;
-    },
-    async signIn({ user, account }) {
-      // PrismaAdapter handles user + account creation for OAuth.
-      // Only patch custom fields (oauthProvider/oauthId) on existing users
-      // that signed up with credentials and are now linking an OAuth provider.
-      if (account?.provider && account.provider !== 'credentials' && user.email) {
-        const existingUser = await db.user.findUnique({
-          where: { email: user.email },
-        });
-        if (existingUser && !existingUser.oauthProvider) {
-          await db.user.update({
-            where: { id: existingUser.id },
-            data: {
-              oauthProvider: account.provider,
-              oauthId: account.providerAccountId,
-              image: user.image || existingUser.image,
-            },
-          });
-        }
-      }
-      return true;
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      // Set default role and plan for new users
-      if (user.id) {
-        await db.user.update({
-          where: { id: user.id },
-          data: {
-            role: 'user',
-            plan: 'free',
-          },
-        });
-      }
     },
   },
   debug: env.NODE_ENV === 'development',
