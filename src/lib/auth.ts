@@ -48,10 +48,9 @@ export const authOptions: NextAuthOptions = {
 
       try {
         const existingUser = await db.user.findUnique({ where: { email: user.email } });
-        console.log('[auth] signIn OAuth', { email: user.email, provider: account.provider, existingUser: !!existingUser });
 
         if (!existingUser) {
-          const created = await db.user.create({
+          await db.user.create({
             data: {
               email: user.email,
               name: user.name || null,
@@ -62,7 +61,6 @@ export const authOptions: NextAuthOptions = {
               plan: 'free',
             },
           });
-          console.log('[auth] signIn created user', created.id);
         } else if (!existingUser.oauthProvider) {
           await db.user.update({
             where: { id: existingUser.id },
@@ -72,9 +70,6 @@ export const authOptions: NextAuthOptions = {
               image: user.image || existingUser.image,
             },
           });
-          console.log('[auth] signIn linked OAuth to existing user', existingUser.id);
-        } else {
-          console.log('[auth] signIn existing OAuth user', existingUser.id);
         }
       } catch (err) {
         console.error('[auth] signIn error', err);
@@ -86,7 +81,6 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user && account && account.provider !== 'credentials') {
         const dbUser = await db.user.findUnique({ where: { email: user.email! } });
-        console.log('[auth] jwt OAuth lookup by email', user.email, 'found:', !!dbUser);
         if (dbUser) {
           token.id = dbUser.id;
           token.role = dbUser.role;
