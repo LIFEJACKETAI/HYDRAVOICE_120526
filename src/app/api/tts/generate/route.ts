@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
     const zai = await getSDK();
 
     const response = await zai.audio.tts.create({
-      model: 'glm-4-voice',
       input: text.trim(),
       voice: voice,
       speed: speed,

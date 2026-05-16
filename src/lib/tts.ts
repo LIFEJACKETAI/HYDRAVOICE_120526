@@ -82,7 +82,6 @@ export async function textToAudio(
   const zai = await getSDK();
 
   const response = await zai.audio.tts.create({
-    model: 'glm-4-voice',
     input: text,
     voice: voice,
     speed: speed,
