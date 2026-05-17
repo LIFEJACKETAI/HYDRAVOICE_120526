@@ -40,7 +40,7 @@ const ENGINES = [
     description:
       'Solid, reliable synthesis with wide language support. Great for long documents where natural pacing matters more than expressiveness.',
     voices: ['Joanna', 'Matthew', 'Amy', 'Brian', 'Celine', 'Hans', '+ many more'],
-    tag: 'Free tier',
+    tag: 'Free — no credits',
     tagClass: 'border-muted-foreground/30 text-muted-foreground',
   },
   {
@@ -344,7 +344,7 @@ export function HowItWorksSection() {
   puter.ai.txt2speech("Hello, world!")
     .then(audio => audio.play());
 
-  // Neural engine
+  // Neural engine (SPARK plan+)
   puter.ai.txt2speech("Hello!", { engine: "neural" })
     .then(audio => audio.play());
 

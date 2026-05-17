@@ -51,7 +51,7 @@ function getPuterOptions(plan: string): PuterTTSOptions {
     case 'hydra':
       return { provider: 'xai' };
     default:
-      return { engine: 'standard' };
+      return {};
   }
 }
 
