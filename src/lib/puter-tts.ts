@@ -37,6 +37,13 @@ function getPuter(): Puter {
   return window.puter;
 }
 
+async function ensurePuterAuth(): Promise<void> {
+  const puter = getPuter();
+  if (!puter.auth.isSignedIn()) {
+    await puter.auth.signIn();
+  }
+}
+
 function getPuterOptions(plan: string): PuterTTSOptions {
   switch (plan) {
     case 'starter':
@@ -65,6 +72,7 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
   }
 
   try {
+    await ensurePuterAuth();
     const puter = getPuter();
     const { user } = useAppStore.getState();
     const options = getPuterOptions(user?.role === 'admin' ? 'free' : (user?.plan ?? 'free'));
@@ -297,6 +305,7 @@ export async function convertTextToAudio(
     );
   }
 
+  await ensurePuterAuth();
   const puter = getPuter();
   const ttsOptions = getPuterOptions(plan);
   const chunks = splitTextIntoChunks(text);

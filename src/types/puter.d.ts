@@ -7,11 +7,18 @@ interface PuterTTSOptions {
   language?: string;
 }
 
+interface PuterAuth {
+  isSignedIn(): boolean;
+  signIn(): Promise<void>;
+  signOut(): Promise<void>;
+}
+
 interface PuterAI {
   txt2speech(text: string, options?: PuterTTSOptions): Promise<HTMLAudioElement>;
 }
 
 interface Puter {
+  auth: PuterAuth;
   ai: PuterAI;
 }
 
