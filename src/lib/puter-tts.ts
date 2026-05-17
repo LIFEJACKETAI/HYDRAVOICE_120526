@@ -67,7 +67,7 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
   try {
     const puter = getPuter();
     const { user } = useAppStore.getState();
-    const options = getPuterOptions(user?.plan ?? 'free');
+    const options = getPuterOptions(user?.role === 'admin' ? 'free' : (user?.plan ?? 'free'));
 
     console.log(`[TTS Preview] Requesting Puter preview for: ${voiceId}`, options);
     const audio = await puter.ai.txt2speech(voiceProfile.previewText, options);
@@ -287,7 +287,7 @@ export async function convertTextToAudio(
     hydra: Infinity,
   };
 
-  const plan = user?.plan ?? 'free';
+  const plan = isAdmin ? 'free' : (user?.plan ?? 'free');
   const charLimit = isAdmin ? Infinity : (planLimits[plan] ?? (isAuthenticated ? 10000 : 5000));
 
   if (text.trim().length > charLimit) {
