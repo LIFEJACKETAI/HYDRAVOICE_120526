@@ -18,12 +18,18 @@ import { useToast } from '@/hooks/use-toast'
 import {
   Check,
   Zap,
+  Flame,
+  Waves,
   Building2,
-  ArrowRight,
+  Crown,
   HelpCircle,
+<<<<<<< HEAD
   Flame,
   Users,
   Infinity,
+=======
+  ArrowRight,
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 } from 'lucide-react'
 
 const fadeInUp = {
@@ -33,25 +39,36 @@ const fadeInUp = {
 }
 
 const stagger = {
-  animate: { transition: { staggerChildren: 0.15 } },
+  animate: { transition: { staggerChildren: 0.12 } },
 }
 
 interface PricingTier {
+  id: string
   name: string
   tagline: string
+<<<<<<< HEAD
   monthlyPrice: number
   annualPrice: number
+=======
+  monthlyPrice: number | null
+  annualTotal: number | null
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
   charLimit: string
   description: string
   features: string[]
   popular: boolean
   icon: React.ElementType
   cta: string
+<<<<<<< HEAD
   enterprise?: boolean
+=======
+  engineLabel: string
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 }
 
 const TIERS: PricingTier[] = [
   {
+<<<<<<< HEAD
     name: 'ECHO',
     tagline: 'Free',
     monthlyPrice: 0,
@@ -63,13 +80,29 @@ const TIERS: PricingTier[] = [
       'All 20 premium voices',
       'WAV download',
       'PDF, TXT & DOCX support',
+=======
+    id: 'echo',
+    name: 'ECHO',
+    tagline: 'Free forever',
+    monthlyPrice: 0,
+    annualTotal: null,
+    charLimit: '10,000 chars/mo',
+    description: 'Try Hydravoice with no commitment. Perfect for occasional use.',
+    features: [
+      '10,000 characters per month',
+      'Standard voice engine',
+      'All 20 voice profiles',
+      'WAV download',
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
       'Community support',
     ],
     popular: false,
     icon: Zap,
     cta: 'Get Started Free',
+    engineLabel: 'Standard',
   },
   {
+<<<<<<< HEAD
     name: 'SPARK',
     tagline: 'Starter',
     monthlyPrice: 9,
@@ -81,6 +114,20 @@ const TIERS: PricingTier[] = [
       'All 20 premium voices',
       'WAV download',
       'PDF, TXT & DOCX support',
+=======
+    id: 'spark',
+    name: 'SPARK',
+    tagline: 'Starter',
+    monthlyPrice: 9,
+    annualTotal: 86,
+    charLimit: '500,000 chars/mo',
+    description: 'For regular readers converting books and long documents.',
+    features: [
+      '500,000 characters per month',
+      'Neural voice engine',
+      'All 20 voice profiles',
+      'WAV download',
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
       'Priority email support',
       'Conversion history',
     ],
@@ -104,6 +151,7 @@ const TIERS: PricingTier[] = [
       'Priority support',
       'Conversion history',
     ],
+<<<<<<< HEAD
     popular: true,
     icon: Zap,
     cta: 'Start ROAR',
@@ -150,35 +198,120 @@ const TIERS: PricingTier[] = [
     icon: Infinity,
     cta: 'Contact Sales',
     enterprise: true,
+=======
+    popular: false,
+    icon: Flame,
+    cta: 'Start SPARK',
+    engineLabel: 'Neural',
+  },
+  {
+    id: 'roar',
+    name: 'ROAR',
+    tagline: 'Pro',
+    monthlyPrice: 19,
+    annualTotal: 182,
+    charLimit: '2,000,000 chars/mo',
+    description: 'The sweet spot for power users who demand premium quality.',
+    features: [
+      '2,000,000 characters per month',
+      'Gemini AI voice engine',
+      'All 20 voice profiles',
+      'WAV download',
+      'Priority processing',
+      'Chapter splitting',
+      'Priority support',
+    ],
+    popular: true,
+    icon: Waves,
+    cta: 'Start ROAR',
+    engineLabel: 'Gemini AI',
+  },
+  {
+    id: 'chorus',
+    name: 'CHORUS',
+    tagline: 'Business',
+    monthlyPrice: 39,
+    annualTotal: 374,
+    charLimit: '6,000,000 chars/mo',
+    description: 'Scale your audiobook production with ultra-premium voices.',
+    features: [
+      '6,000,000 characters per month',
+      'xAI voice engine',
+      'All 20 voice profiles',
+      'WAV download',
+      'Priority processing',
+      'API access',
+      'Dedicated support',
+    ],
+    popular: false,
+    icon: Building2,
+    cta: 'Start CHORUS',
+    engineLabel: 'xAI',
+  },
+  {
+    id: 'hydra',
+    name: 'HYDRA',
+    tagline: 'Enterprise',
+    monthlyPrice: null,
+    annualTotal: null,
+    charLimit: 'Unlimited',
+    description: 'Custom solutions for large organisations and high-volume teams.',
+    features: [
+      'Unlimited characters',
+      'All voice engines',
+      'Custom voice training',
+      'REST API access',
+      'White-label options',
+      'Dedicated account manager',
+      'SLA guarantee',
+    ],
+    popular: false,
+    icon: Crown,
+    cta: 'Contact Sales',
+    engineLabel: 'All engines',
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
   },
 ]
 
 const FAQ_ITEMS = [
   {
     question: 'What file formats are supported?',
-    answer: 'Hydravoice supports PDF, TXT, and DOCX files. Our intelligent parser handles complex formatting, tables, footnotes, and multi-chapter documents with ease.',
+    answer: 'Hydravoice supports PDF, TXT, and DOCX files up to 20 MB. Our intelligent parser handles complex formatting, tables, footnotes, and multi-chapter documents.',
   },
   {
-    question: 'How long does conversion take?',
-    answer: 'Most conversions complete within seconds to a few minutes, depending on the document length. Pro and Enterprise users get priority processing for even faster results.',
+    question: 'How are characters counted?',
+    answer: 'Characters are counted from the text extracted from your uploaded document. Spaces and punctuation count. Your monthly allowance resets on your billing date each month.',
+  },
+  {
+    question: 'What is the difference between voice engines?',
+    answer: 'Standard (ECHO) uses AWS Polly for solid baseline quality. Neural (SPARK) adds natural cadence. Gemini AI (ROAR) delivers expressive, human-like narration. xAI (CHORUS/HYDRA) provides the most advanced synthesis available.',
   },
   {
     question: 'Can I preview voices before converting?',
-    answer: 'Absolutely! Every voice in our library has a preview button. Click play to hear a short sample and find the perfect narrator for your content.',
+    answer: 'Yes — every voice has a preview button. Click play to hear a short sample and find the perfect narrator before you commit to a full conversion.',
   },
   {
     question: 'What happens when I reach my monthly limit?',
-    answer: 'Free users can upgrade to Pro for more conversions, or wait until the next month when the limit resets. Pro users who hit 50 conversions can upgrade to Enterprise for unlimited access.',
+    answer: 'Conversion is paused until your limit resets on your next billing date. You can upgrade your plan at any time to increase your character allowance immediately.',
   },
   {
     question: 'Can I cancel my subscription anytime?',
-    answer: 'Yes, you can cancel your subscription at any time from your account settings. You will continue to have access until the end of your current billing period.',
+    answer: 'Yes, cancel anytime from account settings. You keep full access until the end of your current billing period — no partial-month charges.',
   },
   {
     question: 'Is there an API for integration?',
-    answer: 'Yes, Enterprise plan includes full REST API access with comprehensive documentation. You can integrate Hydravoice into your own applications and workflows.',
+    answer: 'CHORUS and HYDRA plans include full REST API access with documentation, so you can integrate Hydravoice into your own applications and workflows.',
   },
 ]
+
+function formatMonthlyDisplay(tier: PricingTier, annual: boolean): string {
+  if (tier.monthlyPrice === null) return 'Custom'
+  if (tier.monthlyPrice === 0) return '$0'
+  if (annual && tier.annualTotal !== null) {
+    return `$${(tier.annualTotal / 12).toFixed(2)}`
+  }
+  return `$${tier.monthlyPrice}`
+}
 
 export function PricingSection() {
   const [annual, setAnnual] = useState(false)
@@ -192,10 +325,19 @@ export function PricingSection() {
       if (!isAuthenticated) {
         toast({ title: 'Sign up required', description: 'Create a free account to get started with ECHO.' })
       } else {
+<<<<<<< HEAD
         toast({ title: 'You are on the ECHO plan', description: 'Upgrade anytime to unlock more characters.' })
+=======
+        toast({ title: 'You are on the ECHO plan', description: 'Upgrade anytime to unlock more characters and better voice engines.' })
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
       }
+    } else if (tier.id === 'hydra') {
+      toast({ title: 'Enterprise enquiry', description: "We'll be in touch shortly. Thank you for your interest!" })
     } else {
-      toast({ title: `${tier.name} plan selected`, description: 'Payment integration coming soon. Thank you for your interest!' })
+      toast({
+        title: `${tier.name} plan selected`,
+        description: 'Payment integration coming soon. Thank you for your interest!',
+      })
     }
   }
 
@@ -212,20 +354,22 @@ export function PricingSection() {
           Simple, transparent pricing
         </motion.h1>
         <motion.p variants={fadeInUp} className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
-          Choose the plan that fits your needs. Start free and scale as you grow.
+          Character-based plans that scale with you. Start free and upgrade when you need more.
         </motion.p>
 
         {/* Annual toggle */}
         <motion.div variants={fadeInUp} className="flex items-center justify-center gap-3">
-          <Label htmlFor="billing-toggle" className={`text-sm ${!annual ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+          <Label
+            htmlFor="billing-toggle"
+            className={`text-sm ${!annual ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
+          >
             Monthly
           </Label>
-          <Switch
-            id="billing-toggle"
-            checked={annual}
-            onCheckedChange={setAnnual}
-          />
-          <Label htmlFor="billing-toggle" className={`text-sm ${annual ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+          <Switch id="billing-toggle" checked={annual} onCheckedChange={setAnnual} />
+          <Label
+            htmlFor="billing-toggle"
+            className={`text-sm ${annual ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
+          >
             Annual
           </Label>
           {annual && (
@@ -242,24 +386,29 @@ export function PricingSection() {
         whileInView="animate"
         viewport={{ once: true }}
         variants={stagger}
+<<<<<<< HEAD
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6 mb-20"
+=======
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-5 mb-20"
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
       >
         {TIERS.map((tier) => (
-          <motion.div key={tier.name} variants={fadeInUp}>
+          <motion.div key={tier.id} variants={fadeInUp} className="flex">
             <Card
-              className={`relative h-full flex flex-col transition-all duration-300 ${
+              className={`relative w-full flex flex-col transition-all duration-300 ${
                 tier.popular
-                  ? 'glass border-primary/40 teal-glow-sm scale-[1.02]'
+                  ? 'glass border-primary/40 teal-glow-sm lg:scale-[1.04]'
                   : 'glass hover:border-primary/20'
               }`}
             >
               {tier.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground px-4 py-1 text-xs font-semibold">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                  <Badge className="bg-primary text-primary-foreground px-4 py-1 text-xs font-semibold whitespace-nowrap">
                     Most Popular
                   </Badge>
                 </div>
               )}
+<<<<<<< HEAD
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2 mb-1">
                   <tier.icon className={`h-4 w-4 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -298,6 +447,57 @@ export function PricingSection() {
                   {tier.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs">
                       <Check className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`} />
+=======
+
+              <CardHeader className="pb-3 pt-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <tier.icon
+                    className={`h-4 w-4 flex-shrink-0 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`}
+                  />
+                  <CardTitle className="text-base font-bold tracking-wide">{tier.name}</CardTitle>
+                </div>
+                <p className="text-xs text-muted-foreground font-medium">{tier.tagline}</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-snug">{tier.description}</p>
+              </CardHeader>
+
+              <CardContent className="flex-1 flex flex-col pt-0">
+                {/* Price */}
+                <div className="mb-4">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold">
+                      {formatMonthlyDisplay(tier, annual)}
+                    </span>
+                    {tier.monthlyPrice !== null && tier.monthlyPrice > 0 && (
+                      <span className="text-muted-foreground text-xs">/mo</span>
+                    )}
+                    {tier.monthlyPrice === 0 && (
+                      <span className="text-muted-foreground text-xs">forever</span>
+                    )}
+                  </div>
+                  {annual && tier.annualTotal !== null && tier.monthlyPrice !== null && tier.monthlyPrice > 0 && (
+                    <p className="text-xs text-primary mt-0.5">
+                      ${tier.annualTotal}/year
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">{tier.charLimit}</p>
+                  <Badge
+                    variant="outline"
+                    className="mt-1.5 text-[10px] px-1.5 py-0 border-primary/30 text-primary"
+                  >
+                    {tier.engineLabel}
+                  </Badge>
+                </div>
+
+                {/* Features */}
+                <ul className="space-y-2 mb-6 flex-1">
+                  {tier.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs">
+                      <Check
+                        className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${
+                          tier.popular ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                      />
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -305,7 +505,11 @@ export function PricingSection() {
 
                 <Button
                   onClick={() => handleSelectPlan(tier)}
+<<<<<<< HEAD
                   className={`w-full text-sm ${
+=======
+                  className={`w-full text-xs h-8 ${
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
                     tier.popular
                       ? 'bg-primary text-primary-foreground hover:bg-primary/90 teal-glow-sm'
                       : ''
