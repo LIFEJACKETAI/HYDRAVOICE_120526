@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
 import { cleanWavFile, pitchShiftWav } from '@/lib/audio-utils';
 import { getVoiceById } from '@/lib/voices';
-
-// ─── Singleton SDK Instance ────────────────────────────────────────
-
-let _zaiInstance: ZAI | null = null;
-
-async function getSDK(): Promise<ZAI> {
-  if (!_zaiInstance) {
-    _zaiInstance = await ZAI.create();
-  }
-  return _zaiInstance;
-}
+import { callTTS } from '@/lib/tts';
 
 /**
  * POST /api/tts/preview
@@ -47,13 +36,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const zai = await getSDK();
-
     // Generate at faster speed to compensate for pitch shift resampling
     const effectiveSpeed = speed * pitchShift;
     console.log(`[TTS Preview] Generating: voiceId=${voiceId}, sdkVoice=${sdkVoice}, speed=${speed}, pitchShift=${pitchShift}, effectiveSpeed=${effectiveSpeed.toFixed(2)}`);
 
-    const response = await zai.audio.tts.create({
+    const response = await callTTS({
       input: previewText,
       voice: sdkVoice,
       speed: effectiveSpeed,

@@ -3,13 +3,13 @@ export const env = {
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'hydravoice-dev-secret-change-in-production',
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
 
-  // Google OAuth
-  GOOGLE_ID: process.env.GOOGLE_ID || 'placeholder-google-client-id',
-  GOOGLE_SECRET: process.env.GOOGLE_SECRET || 'placeholder-google-client-secret',
+  // Google OAuth (empty = provider disabled)
+  GOOGLE_ID: process.env.GOOGLE_ID || '',
+  GOOGLE_SECRET: process.env.GOOGLE_SECRET || '',
 
-  // Microsoft OAuth
-  MICROSOFT_ID: process.env.MICROSOFT_ID || 'placeholder-microsoft-client-id',
-  MICROSOFT_SECRET: process.env.MICROSOFT_SECRET || 'placeholder-microsoft-client-secret',
+  // Microsoft OAuth (empty = provider disabled)
+  MICROSOFT_ID: process.env.MICROSOFT_ID || '',
+  MICROSOFT_SECRET: process.env.MICROSOFT_SECRET || '',
 
   // Stripe
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder_stripe_key',
