@@ -54,12 +54,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="dark">
       <head>
-<<<<<<< HEAD
-        {/* Puter.js — free client-side AI (TTS via OpenAI) */}
-        <script src="https://js.puter.com/v2/" async></script>
-=======
         <Script src="https://js.puter.com/v2/" strategy="beforeInteractive" />
->>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
