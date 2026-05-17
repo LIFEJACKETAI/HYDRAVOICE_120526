@@ -21,6 +21,9 @@ import {
   Building2,
   ArrowRight,
   HelpCircle,
+  Flame,
+  Users,
+  Infinity,
 } from 'lucide-react'
 
 const fadeInUp = {
@@ -35,68 +38,118 @@ const stagger = {
 
 interface PricingTier {
   name: string
+  tagline: string
   monthlyPrice: number
   annualPrice: number
+  charLimit: string
   description: string
   features: string[]
   popular: boolean
   icon: React.ElementType
   cta: string
+  enterprise?: boolean
 }
 
 const TIERS: PricingTier[] = [
   {
-    name: 'Starter',
+    name: 'ECHO',
+    tagline: 'Free',
     monthlyPrice: 0,
     annualPrice: 0,
-    description: 'Perfect for trying out Hydravoice with basic conversion needs.',
+    charLimit: '10,000 chars/month',
+    description: 'Perfect for trying out Hydravoice with everyday reading needs.',
     features: [
-      '3 conversions per month',
-      '5 minute max per file',
-      'Standard voice selection',
-      'MP3 download',
-      'Email support',
+      '10,000 characters per month',
+      'All 20 premium voices',
+      'WAV download',
+      'PDF, TXT & DOCX support',
+      'Community support',
     ],
     popular: false,
     icon: Zap,
     cta: 'Get Started Free',
   },
   {
-    name: 'Pro',
-    monthlyPrice: 9.99,
-    annualPrice: 7.99,
+    name: 'SPARK',
+    tagline: 'Starter',
+    monthlyPrice: 9,
+    annualPrice: 7,
+    charLimit: '500,000 chars/month',
     description: 'For avid readers who convert documents regularly.',
     features: [
-      '50 conversions per month',
-      '2 hour max per file',
-      'All 20+ premium voices',
-      'Priority processing',
-      'MP3 & WAV download',
-      'Chapter splitting',
+      '500,000 characters per month',
+      'All 20 premium voices',
+      'WAV download',
+      'PDF, TXT & DOCX support',
       'Priority email support',
+      'Conversion history',
+    ],
+    popular: false,
+    icon: Flame,
+    cta: 'Start SPARK',
+  },
+  {
+    name: 'ROAR',
+    tagline: 'Pro',
+    monthlyPrice: 19,
+    annualPrice: 15,
+    charLimit: '2,000,000 chars/month',
+    description: 'For power users and content creators who need serious volume.',
+    features: [
+      '2,000,000 characters per month',
+      'All 20 premium voices',
+      'WAV download',
+      'PDF, TXT & DOCX support',
+      'Priority processing',
+      'Priority support',
+      'Conversion history',
     ],
     popular: true,
     icon: Zap,
-    cta: 'Start Pro Trial',
+    cta: 'Start ROAR',
   },
   {
-    name: 'Enterprise',
-    monthlyPrice: 29.99,
-    annualPrice: 24.99,
-    description: 'Unlimited conversions with API access for teams and businesses.',
+    name: 'CHORUS',
+    tagline: 'Business',
+    monthlyPrice: 39,
+    annualPrice: 31,
+    charLimit: '6,000,000 chars/month',
+    description: 'For teams and businesses with high-volume conversion needs.',
     features: [
-      'Unlimited conversions',
-      'Unlimited file length',
-      'All 20+ premium voices',
-      'REST API access',
+      '6,000,000 characters per month',
+      'All 20 premium voices',
+      'WAV download',
+      'PDF, TXT & DOCX support',
       'Priority processing',
-      'All audio formats',
-      'Dedicated account manager',
-      'Custom voice training',
+      'Dedicated account support',
+      'Usage analytics',
+      'Team management',
     ],
     popular: false,
-    icon: Building2,
+    icon: Users,
+    cta: 'Start CHORUS',
+  },
+  {
+    name: 'HYDRA',
+    tagline: 'Enterprise',
+    monthlyPrice: 0,
+    annualPrice: 0,
+    charLimit: 'Unlimited',
+    description: 'Custom solutions for enterprises and large-scale deployments.',
+    features: [
+      'Unlimited characters',
+      'All 20 premium voices',
+      'All audio formats',
+      'API access',
+      'Custom voice training',
+      'SLA guarantee',
+      'Dedicated account manager',
+      'Custom integrations',
+    ],
+    popular: false,
+    icon: Infinity,
     cta: 'Contact Sales',
+    enterprise: true,
   },
 ]
 
@@ -133,11 +186,13 @@ export function PricingSection() {
   const { toast } = useToast()
 
   const handleSelectPlan = (tier: PricingTier) => {
-    if (tier.monthlyPrice === 0) {
+    if (tier.enterprise) {
+      toast({ title: 'HYDRA Enterprise', description: 'Contact us at hello@hydravoice.ai for custom pricing and integrations.' })
+    } else if (tier.monthlyPrice === 0) {
       if (!isAuthenticated) {
-        toast({ title: 'Sign up required', description: 'Create a free account to get started.' })
+        toast({ title: 'Sign up required', description: 'Create a free account to get started with ECHO.' })
       } else {
-        toast({ title: 'You are on the Starter plan', description: 'Upgrade anytime to access more features.' })
+        toast({ title: 'You are on the ECHO plan', description: 'Upgrade anytime to unlock more characters.' })
       }
     } else {
       toast({ title: `${tier.name} plan selected`, description: 'Payment integration coming soon. Thank you for your interest!' })
@@ -187,7 +242,7 @@ export function PricingSection() {
         whileInView="animate"
         viewport={{ once: true }}
         variants={stagger}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-20"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6 mb-20"
       >
         {TIERS.map((tier) => (
           <motion.div key={tier.name} variants={fadeInUp}>
@@ -205,37 +260,44 @@ export function PricingSection() {
                   </Badge>
                 </div>
               )}
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <tier.icon className={`h-5 w-5 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <CardTitle className="text-lg">{tier.name}</CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <tier.icon className={`h-4 w-4 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <CardTitle className="text-base font-bold">{tier.name}</CardTitle>
                 </div>
-                <p className="text-sm text-muted-foreground">{tier.description}</p>
+                <p className={`text-xs font-medium ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {tier.tagline}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{tier.description}</p>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold">
-                      ${annual ? tier.annualPrice : tier.monthlyPrice}
-                    </span>
-                    {tier.monthlyPrice > 0 && (
-                      <span className="text-muted-foreground text-sm">/month</span>
-                    )}
-                    {tier.monthlyPrice === 0 && (
-                      <span className="text-muted-foreground text-sm">forever</span>
-                    )}
-                  </div>
-                  {annual && tier.monthlyPrice > 0 && (
-                    <p className="text-xs text-primary mt-1">
-                      Billed annually (${(annual ? tier.annualPrice : tier.monthlyPrice) * 12}/year)
+              <CardContent className="flex-1 flex flex-col pt-0">
+                <div className="mb-4">
+                  {tier.enterprise ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold">Custom</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold">
+                        ${tier.monthlyPrice === 0 ? '0' : annual ? tier.annualPrice : tier.monthlyPrice}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {tier.monthlyPrice === 0 ? '/forever' : '/mo'}
+                      </span>
+                    </div>
+                  )}
+                  {annual && tier.monthlyPrice > 0 && !tier.enterprise && (
+                    <p className="text-xs text-primary mt-0.5">
+                      Billed annually
                     </p>
                   )}
+                  <p className="text-xs text-primary font-medium mt-1">{tier.charLimit}</p>
                 </div>
 
-                <ul className="space-y-3 mb-8 flex-1">
+                <ul className="space-y-2 mb-6 flex-1">
                   {tier.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className={`h-4 w-4 mt-0.5 flex-shrink-0 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <li key={i} className="flex items-start gap-2 text-xs">
+                      <Check className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${tier.popular ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -243,15 +305,16 @@ export function PricingSection() {
 
                 <Button
                   onClick={() => handleSelectPlan(tier)}
-                  className={`w-full ${
+                  className={`w-full text-sm ${
                     tier.popular
                       ? 'bg-primary text-primary-foreground hover:bg-primary/90 teal-glow-sm'
-                      : 'variant-outline'
+                      : ''
                   }`}
                   variant={tier.popular ? 'default' : 'outline'}
+                  size="sm"
                 >
                   {tier.cta}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                 </Button>
               </CardContent>
             </Card>
