@@ -27,7 +27,7 @@ async function getConfig(): Promise<ZAIConfig> {
   throw new Error('Configuration file not found or invalid. Please create .z-ai-config');
 }
 
-const TTS_MODEL = 'glm-tts';
+const TTS_MODEL = 'cogtts';
 
 export async function callTTS(body: {
   input: string; voice?: string; speed?: number; response_format?: string; stream?: boolean;
