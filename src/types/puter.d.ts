@@ -1,5 +1,14 @@
+interface PuterTTSOptions {
+  engine?: 'standard' | 'neural' | 'generative';
+  provider?: 'aws' | 'openai' | 'elevenlabs' | 'gemini' | 'xai';
+  model?: string;
+  voice?: string;
+  instructions?: string;
+  language?: string;
+}
+
 interface PuterAI {
-  txt2speech(text: string): Promise<HTMLAudioElement>;
+  txt2speech(text: string, options?: PuterTTSOptions): Promise<HTMLAudioElement>;
 }
 
 interface Puter {
@@ -13,3 +22,4 @@ declare global {
 }
 
 export {};
+export type { PuterTTSOptions };

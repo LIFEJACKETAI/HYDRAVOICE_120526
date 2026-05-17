@@ -6,12 +6,20 @@
  *
  * Voice previews: instant, single puter.ai.txt2speech() call.
  * Document conversion: text is chunked client-side, each chunk is
- * synthesised via Puter, the resulting audio blobs are concatenated,
- * and the merged blob is offered as a download.
+ * synthesised via Puter with an 800ms inter-chunk delay (rate-limit
+ * protection), the resulting AudioBuffers are decoded and concatenated
+ * via the Web Audio API, and the merged WAV blob is offered as a download.
+ *
+ * Engine gating by plan:
+ *   free/echo    → { engine: 'standard' }
+ *   starter/spark → { engine: 'neural' }
+ *   pro/roar     → { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts' }
+ *   business/chorus / enterprise/hydra → { provider: 'xai' }
  */
 
 import { getVoiceById } from './voices';
 import { useAppStore } from './store';
+import type { PuterTTSOptions } from '../types/puter';
 
 // ═══════════════════════════════════════════════════════════════════
 // PART 1: Voice Previews
@@ -27,6 +35,24 @@ function getPuter(): Puter {
   return window.puter;
 }
 
+function getPuterOptions(plan: string): PuterTTSOptions {
+  switch (plan) {
+    case 'starter':
+    case 'spark':
+      return { engine: 'neural' };
+    case 'pro':
+    case 'roar':
+      return { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts' };
+    case 'business':
+    case 'chorus':
+    case 'enterprise':
+    case 'hydra':
+      return { provider: 'xai' };
+    default:
+      return { engine: 'standard' };
+  }
+}
+
 export async function playVoicePreview(voiceId: string): Promise<void> {
   stopVoicePreview();
 
@@ -37,13 +63,14 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
   }
 
   try {
-    console.log(`[TTS Preview] Requesting Puter preview for: ${voiceId}`);
     const puter = getPuter();
-    const audio = await puter.ai.txt2speech(voiceProfile.previewText);
+    const { user } = useAppStore.getState();
+    const options = getPuterOptions(user?.plan ?? 'free');
 
-    // Apply speed variation for voice differentiation
+    console.log(`[TTS Preview] Requesting Puter preview for: ${voiceId}`, options);
+    const audio = await puter.ai.txt2speech(voiceProfile.previewText, options);
+
     audio.playbackRate = voiceProfile.ttsSpeed;
-
     currentPreviewAudio = audio;
     currentPreviewVoiceId = voiceId;
 
@@ -115,6 +142,7 @@ export interface ConversionResult {
 }
 
 const MAX_CHUNK_LENGTH = 1000;
+const CHUNK_DELAY_MS = 800;
 
 function splitTextIntoChunks(text: string, maxLength = MAX_CHUNK_LENGTH): string[] {
   if (!text || text.trim().length === 0) return [];
@@ -152,9 +180,79 @@ function splitTextIntoChunks(text: string, maxLength = MAX_CHUNK_LENGTH): string
   return chunks;
 }
 
-async function audioElementToBlob(audio: HTMLAudioElement): Promise<Blob> {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function audioElementToArrayBuffer(audio: HTMLAudioElement): Promise<ArrayBuffer> {
   const response = await fetch(audio.src);
-  return response.blob();
+  return response.arrayBuffer();
+}
+
+function writeString(view: DataView, offset: number, str: string): void {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
+}
+
+function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const bitDepth = 16;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  const dataLength = buffer.length * blockAlign;
+  const wavBuffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(wavBuffer);
+
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataLength, true);
+
+  let offset = 44;
+  for (let i = 0; i < buffer.length; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return wavBuffer;
+}
+
+function concatenateAudioBuffers(ctx: AudioContext, buffers: AudioBuffer[]): AudioBuffer {
+  if (buffers.length === 0) throw new Error('No audio buffers to concatenate');
+  if (buffers.length === 1) return buffers[0];
+
+  const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
+  const numChannels = Math.max(...buffers.map((b) => b.numberOfChannels));
+  const sampleRate = buffers[0].sampleRate;
+
+  const merged = ctx.createBuffer(numChannels, totalLength, sampleRate);
+  let offset = 0;
+
+  for (const buf of buffers) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const srcData = ch < buf.numberOfChannels
+        ? buf.getChannelData(ch)
+        : new Float32Array(buf.length);
+      merged.getChannelData(ch).set(srcData, offset);
+    }
+    offset += buf.length;
+  }
+
+  return merged;
 }
 
 export async function convertTextToAudio(
@@ -171,23 +269,35 @@ export async function convertTextToAudio(
     throw new Error('No text content to convert to audio');
   }
 
-  // Check plan limits via the backend (auth + character limits still apply)
   const { user } = useAppStore.getState();
   const isAdmin = user?.role === 'admin';
   const isAuthenticated = !!user;
-  const charLimit = isAdmin ? Infinity : isAuthenticated ? 50000 : 5000;
+
+  const planLimits: Record<string, number> = {
+    free: 10000,
+    echo: 10000,
+    starter: 500000,
+    spark: 500000,
+    pro: 2000000,
+    roar: 2000000,
+    business: 6000000,
+    chorus: 6000000,
+    enterprise: Infinity,
+    hydra: Infinity,
+  };
+
+  const plan = user?.plan ?? 'free';
+  const charLimit = isAdmin ? Infinity : (planLimits[plan] ?? (isAuthenticated ? 10000 : 5000));
 
   if (text.trim().length > charLimit) {
-    const limitLabel = isAuthenticated ? '50,000' : '5,000';
-    const suggestion = !isAuthenticated
-      ? ' Sign in for longer conversions (up to 50,000 characters).'
-      : ' Upgrade your plan for longer conversions.';
+    const limitLabel = charLimit === Infinity ? 'unlimited' : charLimit.toLocaleString();
     throw new Error(
-      `Text exceeds the ${limitLabel} character limit (${text.trim().length.toLocaleString()} characters).${suggestion}`
+      `Text exceeds your ${plan} plan limit of ${limitLabel} characters (${text.trim().length.toLocaleString()} characters).`
     );
   }
 
   const puter = getPuter();
+  const ttsOptions = getPuterOptions(plan);
   const chunks = splitTextIntoChunks(text);
 
   if (chunks.length === 0) {
@@ -203,13 +313,13 @@ export async function convertTextToAudio(
     engine: 'puter',
   });
 
-  const blobs: Blob[] = [];
-  let audioMimeType = 'audio/wav';
+  const audioCtx = new AudioContext();
+  const audioBuffers: AudioBuffer[] = [];
 
   try {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      console.log(`[TTS Convert] Chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
+      console.log(`[TTS Convert] Chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`, ttsOptions);
 
       onProgress?.({
         currentChunk: i + 1,
@@ -220,22 +330,23 @@ export async function convertTextToAudio(
         engine: 'puter',
       });
 
-      const audio = await puter.ai.txt2speech(chunk);
-      audio.playbackRate = voiceProfile.ttsSpeed;
+      const audio = await puter.ai.txt2speech(chunk, ttsOptions);
+      const arrayBuffer = await audioElementToArrayBuffer(audio);
+      const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      audioBuffers.push(decoded);
 
-      const blob = await audioElementToBlob(audio);
-      if (blob.type) audioMimeType = blob.type;
-      blobs.push(blob);
+      // 800ms rate-limit delay between chunks
+      if (i < chunks.length - 1) {
+        await delay(CHUNK_DELAY_MS);
+      }
     }
 
-    const audioBlob = new Blob(blobs, { type: audioMimeType });
+    const merged = concatenateAudioBuffers(audioCtx, audioBuffers);
+    const wavArrayBuffer = audioBufferToWav(merged);
+    const audioBlob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
     const audioUrl = URL.createObjectURL(audioBlob);
 
     console.log(`[TTS Convert] Complete: ${audioBlob.size} bytes, ${chunks.length} chunks`);
-
-    // Rough duration estimate: assume ~150 words/minute average TTS speed
-    const wordCount = text.split(/\s+/).length;
-    const estimatedDuration = (wordCount / 150) * 60;
 
     onProgress?.({
       currentChunk: chunks.length,
@@ -246,10 +357,12 @@ export async function convertTextToAudio(
       engine: 'puter',
     });
 
+    await audioCtx.close();
+
     return {
       audioBlob,
       audioUrl,
-      totalDuration: Math.round(estimatedDuration * 100) / 100,
+      totalDuration: merged.duration,
       totalSize: audioBlob.size,
       engine: 'puter',
     };
@@ -262,6 +375,7 @@ export async function convertTextToAudio(
       message: error instanceof Error ? error.message : 'Conversion failed',
       engine: 'puter',
     });
+    await audioCtx.close().catch(() => {});
     throw error;
   }
 }

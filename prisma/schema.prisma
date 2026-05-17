@@ -15,10 +15,12 @@ model User {
   image        String?
   oauthProvider String?
   oauthId      String?
-  role         String    @default("user")
-  plan         String    @default("free")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  role                    String    @default("user")
+  plan                    String    @default("free")
+  charactersUsedThisMonth Int       @default(0)
+  characterLimit          Int       @default(10000)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   documents Documents[]
   payments  Payments[]
