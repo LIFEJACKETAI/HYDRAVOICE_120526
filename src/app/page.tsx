@@ -9,6 +9,7 @@ import { CreateSection } from '@/components/sections/create-section'
 import { PricingSection } from '@/components/sections/pricing-section'
 import { AccountSection } from '@/components/sections/account-section'
 import { AdminSection } from '@/components/sections/admin-section'
+import { HowItWorksSection } from '@/components/sections/how-it-works-section'
 import { HydravoiceIcon } from '@/components/hydravoice-icon'
 
 const pageVariants = {
@@ -28,6 +29,8 @@ export default function Home() {
         return <CreateSection />
       case 'pricing':
         return <PricingSection />
+      case 'how-it-works':
+        return <HowItWorksSection />
       case 'account':
         return <AccountSection />
       case 'admin':
