@@ -34,7 +34,7 @@ import {
   Music,
   AlertCircle,
   AudioWaveform,
-  Server,
+  Cpu,
   Shield,
   LogIn,
 } from 'lucide-react'
@@ -531,7 +531,7 @@ export function CreateSection() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground flex items-center gap-2">
-                      <Server className="h-3.5 w-3.5 text-primary" />
+                      <Cpu className="h-3.5 w-3.5 text-primary" />
                       {progressMessage || 'Converting to audio...'}
                     </span>
                     <span className="text-primary font-medium">{Math.min(Math.round(progress), 100)}%</span>
@@ -554,7 +554,7 @@ export function CreateSection() {
                       <CheckCircle2 className="h-5 w-5" />
                       <span className="font-medium">Conversion complete!</span>
                       <Badge variant="secondary" className="text-xs ml-2">
-                        <Server className="h-3 w-3 mr-1" /> Server
+                        <Cpu className="h-3 w-3 mr-1" /> Puter AI
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">

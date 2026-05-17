@@ -1,4 +1,18 @@
+'use client';
+
 /**
+<<<<<<< HEAD
+ * Client-side TTS engine powered by Puter.js (puter.ai.txt2speech).
+ *
+ * Puter.js routes to OpenAI TTS — free, no API key required, runs in the browser.
+ * Voices: alloy | echo | fable | onyx | nova | shimmer
+ */
+
+import { getVoiceById, splitTextIntoChunks } from './voices';
+
+// ═══════════════════════════════════════════════════════════════════
+// PART 1: Voice Previews (Puter.js client-side)
+=======
  * Client-side TTS using Puter.js (puter.ai.txt2speech).
  *
  * No API key required — Puter handles auth via its CDN script.
@@ -23,11 +37,18 @@ import type { PuterTTSOptions } from '../types/puter';
 
 // ═══════════════════════════════════════════════════════════════════
 // PART 1: Voice Previews
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 // ═══════════════════════════════════════════════════════════════════
 
 let currentPreviewAudio: HTMLAudioElement | null = null;
 let currentPreviewVoiceId: string | null = null;
 
+<<<<<<< HEAD
+/**
+ * Play a voice preview using Puter.js TTS.
+ * Calls puter.ai.txt2speech() directly in the browser — no server needed.
+ */
+=======
 function getPuter(): Puter {
   if (typeof window === 'undefined' || !window.puter) {
     throw new Error('Puter.js is not loaded yet. Please try again in a moment.');
@@ -53,15 +74,45 @@ function getPuterOptions(plan: string): PuterTTSOptions {
   }
 }
 
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 export async function playVoicePreview(voiceId: string): Promise<void> {
   stopVoicePreview();
 
   const voiceProfile = getVoiceById(voiceId);
-  if (!voiceProfile) {
-    console.warn(`Voice profile not found: ${voiceId}`);
-    return;
+  if (!voiceProfile) throw new Error(`Voice profile not found: ${voiceId}`);
+
+  if (typeof puter === 'undefined') {
+    throw new Error('Puter.js is not loaded. Please refresh the page and try again.');
   }
 
+<<<<<<< HEAD
+  console.log(`[Puter TTS Preview] voiceId=${voiceId}, puterVoice=${voiceProfile.puterVoice}`);
+
+  const audio = await puter.ai.txt2speech(voiceProfile.previewText, {
+    voice: voiceProfile.puterVoice,
+  });
+
+  currentPreviewAudio = audio;
+  currentPreviewVoiceId = voiceId;
+
+  return new Promise<void>((resolve, reject) => {
+    audio.onended = () => {
+      currentPreviewVoiceId = null;
+      resolve();
+    };
+
+    audio.onerror = () => {
+      currentPreviewVoiceId = null;
+      currentPreviewAudio = null;
+      reject(new Error('Voice preview failed: audio playback error'));
+    };
+
+    audio.play().catch((err) => {
+      console.warn('[Puter TTS Preview] Autoplay blocked:', err);
+      resolve();
+    });
+  });
+=======
   try {
     const puter = getPuter();
     const { user } = useAppStore.getState();
@@ -97,6 +148,7 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
     console.error('[TTS Preview] Error:', error);
     throw error;
   }
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 }
 
 export function stopVoicePreview(): void {
@@ -116,12 +168,24 @@ export function isVoicePreviewPlaying(voiceId: string): boolean {
   );
 }
 
+<<<<<<< HEAD
+/**
+ * Check if Puter.js TTS is available.
+ */
+export function isBrowserTTSAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof (window as any).puter !== 'undefined';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PART 2: Document Conversion (Puter.js client-side)
+=======
 export function isBrowserTTSAvailable(): boolean {
   return typeof window !== 'undefined' && !!window.puter;
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // PART 2: Document Conversion
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 // ═══════════════════════════════════════════════════════════════════
 
 export interface ConversionProgress {
@@ -139,6 +203,53 @@ export interface ConversionResult {
   totalDuration: number;
   totalSize: number;
   engine: 'puter';
+<<<<<<< HEAD
+}
+
+// ── WAV encoder ───────────────────────────────────────────────────
+
+function encodeWAV(samples: Float32Array, sampleRate: number): ArrayBuffer {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  function writeString(offset: number, str: string) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    offset += 2;
+  }
+
+  return buffer;
+}
+
+// ── Main conversion ───────────────────────────────────────────────
+
+/**
+ * Convert text to audio using Puter.js TTS (OpenAI TTS via Puter cloud).
+ *
+ * Chunks the text, calls puter.ai.txt2speech() for each chunk,
+ * stitches the decoded audio buffers together, and encodes as WAV.
+ * Runs 100% client-side — no server involved.
+ */
+=======
 }
 
 const MAX_CHUNK_LENGTH = 1000;
@@ -255,19 +366,21 @@ function concatenateAudioBuffers(ctx: AudioContext, buffers: AudioBuffer[]): Aud
   return merged;
 }
 
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
 export async function convertTextToAudio(
   text: string,
   voiceId: string,
   onProgress?: (progress: ConversionProgress) => void
 ): Promise<ConversionResult> {
   const voiceProfile = getVoiceById(voiceId);
-  if (!voiceProfile) {
-    throw new Error(`Voice profile not found: ${voiceId}`);
+  if (!voiceProfile) throw new Error(`Voice profile not found: ${voiceId}`);
+  if (!text?.trim()) throw new Error('No text content to convert to audio');
+  if (typeof puter === 'undefined') {
+    throw new Error('Puter.js is not loaded. Please refresh the page and try again.');
   }
 
-  if (!text || text.trim().length === 0) {
-    throw new Error('No text content to convert to audio');
-  }
+  const chunks = splitTextIntoChunks(text.trim());
+  const totalChunks = chunks.length;
 
   const { user } = useAppStore.getState();
   const isAdmin = user?.role === 'admin';
@@ -306,6 +419,53 @@ export async function convertTextToAudio(
 
   onProgress?.({
     currentChunk: 0,
+<<<<<<< HEAD
+    totalChunks,
+    percent: 5,
+    status: 'preparing',
+    message: `Preparing ${totalChunks} chunk${totalChunks !== 1 ? 's' : ''} for conversion...`,
+    engine: 'puter',
+  });
+
+  const audioContext = new AudioContext();
+  const decodedBuffers: AudioBuffer[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const percent = 5 + Math.round(((i + 0.5) / totalChunks) * 80);
+
+    onProgress?.({
+      currentChunk: i + 1,
+      totalChunks,
+      percent,
+      status: 'converting',
+      message: `Converting chunk ${i + 1} of ${totalChunks}...`,
+      engine: 'puter',
+    });
+
+    let audioBuffer: AudioBuffer | null = null;
+    let attempt = 0;
+
+    while (!audioBuffer && attempt < 3) {
+      try {
+        attempt++;
+        const audio = await puter.ai.txt2speech(chunk, { voice: voiceProfile.puterVoice });
+        const response = await fetch(audio.src);
+        if (!response.ok) throw new Error(`Failed to fetch audio blob: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      } catch (err) {
+        if (attempt >= 3) {
+          throw new Error(
+            `Failed to convert chunk ${i + 1} after 3 attempts. Please try again. (${err})`
+          );
+        }
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+
+    if (audioBuffer) decodedBuffers.push(audioBuffer);
+=======
     totalChunks: chunks.length,
     percent: 5,
     status: 'preparing',
@@ -377,7 +537,62 @@ export async function convertTextToAudio(
     });
     await audioCtx.close().catch(() => {});
     throw error;
+>>>>>>> 16366b71076b9a4d8291f4081b37067fff782842
   }
+
+  onProgress?.({
+    currentChunk: totalChunks,
+    totalChunks,
+    percent: 90,
+    status: 'converting',
+    message: 'Stitching audio together...',
+    engine: 'puter',
+  });
+
+  // Concatenate all decoded buffers into a single mono WAV
+  const sampleRate = decodedBuffers[0].sampleRate;
+  const totalLength = decodedBuffers.reduce((sum, b) => sum + b.length, 0);
+  const combined = new Float32Array(totalLength);
+  let writeOffset = 0;
+
+  for (const buf of decodedBuffers) {
+    const ch0 = buf.getChannelData(0);
+    if (buf.numberOfChannels > 1) {
+      const ch1 = buf.getChannelData(1);
+      for (let i = 0; i < buf.length; i++) {
+        combined[writeOffset + i] = (ch0[i] + ch1[i]) / 2;
+      }
+    } else {
+      combined.set(ch0, writeOffset);
+    }
+    writeOffset += buf.length;
+  }
+
+  const wavBuffer = encodeWAV(combined, sampleRate);
+  const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+  const audioUrl = URL.createObjectURL(blob);
+  const durationSeconds = totalLength / sampleRate;
+
+  console.log(
+    `[Puter TTS] Complete: ${blob.size} bytes, ${totalChunks} chunks, voice=${voiceProfile.name} (${voiceProfile.puterVoice}), ${durationSeconds.toFixed(1)}s`
+  );
+
+  onProgress?.({
+    currentChunk: totalChunks,
+    totalChunks,
+    percent: 100,
+    status: 'complete',
+    message: 'Conversion complete!',
+    engine: 'puter',
+  });
+
+  return {
+    audioBlob: blob,
+    audioUrl,
+    totalDuration: Math.round(durationSeconds * 100) / 100,
+    totalSize: blob.size,
+    engine: 'puter',
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════

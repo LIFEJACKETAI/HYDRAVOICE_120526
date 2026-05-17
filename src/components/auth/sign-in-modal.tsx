@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { Mail, Lock, Chrome, Building2, Loader2 } from 'lucide-react'
-import { signIn } from 'next-auth/react'
+import { signIn, getProviders } from 'next-auth/react'
 
 interface SignInModalProps {
   open: boolean
@@ -27,8 +27,17 @@ export function SignInModal({ open, onClose, onSwitchToSignUp }: SignInModalProp
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [oauthProviders, setOauthProviders] = useState<Set<string>>(new Set())
   const { setAuth } = useAppStore()
   const { toast } = useToast()
+
+  useEffect(() => {
+    getProviders().then((providers) => {
+      if (providers) {
+        setOauthProviders(new Set(Object.keys(providers)))
+      }
+    })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,25 +115,33 @@ export function SignInModal({ open, onClose, onSwitchToSignUp }: SignInModalProp
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn('google')}>
-              <Chrome className="mr-2 h-4 w-4" />
-              Google
-            </Button>
-            <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn('azure-ad')}>
-              <Building2 className="mr-2 h-4 w-4" />
-              Microsoft
-            </Button>
-          </div>
+          {(oauthProviders.has('google') || oauthProviders.has('azure-ad')) && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {oauthProviders.has('google') && (
+                  <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn('google')}>
+                    <Chrome className="mr-2 h-4 w-4" />
+                    Google
+                  </Button>
+                )}
+                {oauthProviders.has('azure-ad') && (
+                  <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn('azure-ad')}>
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Microsoft
+                  </Button>
+                )}
+              </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
-            </div>
-          </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
+                </div>
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
