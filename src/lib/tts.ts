@@ -1,17 +1,48 @@
-import ZAI from 'z-ai-web-dev-sdk';
+import { readFile } from 'fs/promises';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { concatenateWavBuffers, pitchShiftWav } from './audio-utils';
 
-// ─── Singleton SDK Instance ────────────────────────────────────────
+// ─── Direct Z.AI config + TTS caller ──────────────────────────────
 
-let _zaiInstance: ZAI | null = null;
+interface ZAIConfig { baseUrl: string; apiKey: string; }
 
-async function getSDK(): Promise<ZAI> {
-  if (!_zaiInstance) {
-    _zaiInstance = await ZAI.create();
+let _config: ZAIConfig | null = null;
+
+async function getConfig(): Promise<ZAIConfig> {
+  if (_config) return _config;
+  const candidates = [
+    path.join(process.cwd(), '.z-ai-config'),
+    path.join(os.homedir(), '.z-ai-config'),
+    '/etc/.z-ai-config',
+  ];
+  for (const p of candidates) {
+    try {
+      const raw = await readFile(p, 'utf-8');
+      const cfg = JSON.parse(raw);
+      if (cfg.baseUrl && cfg.apiKey) { _config = cfg; return cfg; }
+    } catch { /* try next */ }
   }
-  return _zaiInstance;
+  throw new Error('Configuration file not found or invalid. Please create .z-ai-config');
+}
+
+// Calls /audio/speech (the correct endpoint, matching the Python SDK)
+export async function callTTS(body: {
+  input: string; voice?: string; speed?: number; response_format?: string; stream?: boolean;
+}): Promise<Response> {
+  const { baseUrl, apiKey } = await getConfig();
+  const url = `${baseUrl.replace(/\/$/, '')}/audio/speech`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, 'X-Z-AI-From': 'Z' },
+    body: JSON.stringify({ model: 'glm-tts', ...body }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`API request failed with status ${res.status}: ${err}`);
+  }
+  return res;
 }
 
 // ─── Text Chunking ─────────────────────────────────────────────────
@@ -79,17 +110,7 @@ export async function textToAudio(
   voice: string = 'kazi',
   speed: number = 1.0
 ): Promise<Buffer> {
-  const zai = await getSDK();
-
-  const response = await zai.audio.tts.create({
-    model: 'cogtts',
-    input: text,
-    voice: voice,
-    speed: speed,
-    response_format: 'wav',
-    stream: false,
-  });
-
+  const response = await callTTS({ input: text, voice, speed, response_format: 'wav', stream: false });
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(new Uint8Array(arrayBuffer));
 }

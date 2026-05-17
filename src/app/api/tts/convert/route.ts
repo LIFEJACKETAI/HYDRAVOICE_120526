@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import ZAI from 'z-ai-web-dev-sdk';
+import { callTTS } from '@/lib/tts';
 import { concatenateWavBuffers, pitchShiftWav } from '@/lib/audio-utils';
 import { getVoiceById } from '@/lib/voices';
 
@@ -10,17 +10,6 @@ import { getVoiceById } from '@/lib/voices';
 const UNAUTHENTICATED_CHAR_LIMIT = 5000;
 const AUTHENTICATED_CHAR_LIMIT = 50000;
 // Admin users have no limit
-
-// ─── Singleton SDK Instance ────────────────────────────────────────
-
-let _zaiInstance: ZAI | null = null;
-
-async function getSDK(): Promise<ZAI> {
-  if (!_zaiInstance) {
-    _zaiInstance = await ZAI.create();
-  }
-  return _zaiInstance;
-}
 
 // ─── Text Chunking ─────────────────────────────────────────────────
 
@@ -168,7 +157,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No text content to convert' }, { status: 400 });
     }
 
-    const zai = await getSDK();
     const audioBuffers: Buffer[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
@@ -181,8 +169,7 @@ export async function POST(request: NextRequest) {
 
       while (!audioBuffer && retries < maxRetries) {
         try {
-          const response = await zai.audio.tts.create({
-            model: 'cogtts',
+          const response = await callTTS({
             input: chunk,
             voice: voice,
             speed: effectiveSpeed,

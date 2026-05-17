@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
-
-// ─── Singleton SDK Instance ────────────────────────────────────────
-
-let _zaiInstance: ZAI | null = null;
-
-async function getSDK(): Promise<ZAI> {
-  if (!_zaiInstance) {
-    _zaiInstance = await ZAI.create();
-  }
-  return _zaiInstance;
-}
+import { callTTS } from '@/lib/tts';
 
 /**
  * POST /api/tts/generate
@@ -53,10 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const zai = await getSDK();
-
-    const response = await zai.audio.tts.create({
-      model: 'cogtts',
+    const response = await callTTS({
       input: text.trim(),
       voice: voice,
       speed: speed,
