@@ -27,26 +27,22 @@ async function getConfig(): Promise<ZAIConfig> {
   throw new Error('Configuration file not found or invalid. Please create .z-ai-config');
 }
 
-const TTS_MODEL = 'cogtts';
+const TTS_MODEL = 'glm-tts';
 
 export async function callTTS(body: {
   input: string; voice?: string; speed?: number; response_format?: string; stream?: boolean;
 }): Promise<Response> {
   const { baseUrl, apiKey } = await getConfig();
   const url = `${baseUrl.replace(/\/$/, '')}/audio/speech`;
-  const requestBody = { model: TTS_MODEL, ...body };
-  console.log(`[TTS] POST ${url}  model=${TTS_MODEL}  voice=${body.voice}  apiKey=...${apiKey.slice(-6)}`);
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, 'X-Z-AI-From': 'Z' },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({ model: TTS_MODEL, ...body }),
   });
   if (!res.ok) {
     const err = await res.text();
-    console.error(`[TTS] Error response from ${url}: ${err}`);
     throw new Error(`API request failed with status ${res.status}: ${err}`);
   }
-  console.log(`[TTS] Success from ${url}`);
   return res;
 }
 
