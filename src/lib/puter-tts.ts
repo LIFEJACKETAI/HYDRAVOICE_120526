@@ -30,12 +30,14 @@ import type { PuterTTSOptions } from '../types/puter';
 let currentPreviewAudio: HTMLAudioElement | null = null;
 let currentPreviewVoiceId: string | null = null;
 
-// Free-tier preview via StreamElements — serves real AWS Polly voices,
-// no API key, no sign-in, sounds identical to standard Puter tier.
+// Free-tier preview via our proxy → StreamElements → AWS Polly.
+// Proxied server-side to avoid CORS; cached for 1h.
 async function playStreamElementsPreview(voiceProfile: VoiceProfile): Promise<void> {
-  const voice = voiceProfile.puterVoice; // AWS Polly name e.g. 'Joanna'
-  const text = encodeURIComponent(voiceProfile.previewText);
-  const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${text}`;
+  const params = new URLSearchParams({
+    voice: voiceProfile.puterVoice,
+    text: voiceProfile.previewText,
+  });
+  const url = `/api/tts/preview-stream?${params.toString()}`;
 
   const audio = new Audio(url);
   audio.playbackRate = voiceProfile.ttsSpeed;
