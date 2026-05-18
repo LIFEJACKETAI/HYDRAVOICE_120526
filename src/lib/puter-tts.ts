@@ -19,7 +19,7 @@
  *   business/chorus / enterprise/hydra → { provider: 'xai' }
  */
 
-import { getVoiceById } from './voices';
+import { getVoiceById, type VoiceProfile } from './voices';
 import { useAppStore } from './store';
 import type { PuterTTSOptions } from '../types/puter';
 
@@ -44,21 +44,47 @@ async function ensurePuterAuth(): Promise<void> {
   }
 }
 
-function getPuterOptions(plan: string): PuterTTSOptions {
+function getPuterOptions(plan: string, voiceProfile: VoiceProfile): PuterTTSOptions {
   switch (plan) {
     case 'starter':
     case 'spark':
-      return { engine: 'neural' };
+      return { voice: voiceProfile.puterVoice, engine: 'neural' };
     case 'pro':
-    case 'roar':
-      return { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts' };
+    case 'roar': {
+      // Map to Gemini voices by gender+accent
+      const geminiVoices: Record<string, string[]> = {
+        'female-American': ['Aoede', 'Leda', 'Kore', 'Zephyr', 'Lyra'],
+        'female-British':  ['Callirrhoe', 'Autonoe', 'Schedar', 'Leda', 'Kore'],
+        'male-American':   ['Charon', 'Fenrir', 'Orus', 'Perseus', 'Puck'],
+        'male-British':    ['Algieba', 'Iapetus', 'Enceladus', 'Umbriel', 'Achernar'],
+      };
+      const key = `${voiceProfile.gender}-${voiceProfile.accent}`;
+      const voices = geminiVoices[key] ?? geminiVoices['female-American'];
+      // pick deterministically by voice id
+      const idx = ['fa-sophia','fa-emma','fa-olivia','fa-ava','fa-isabella',
+                   'ma-james','ma-william','ma-alexander','ma-daniel','ma-benjamin',
+                   'fb-charlotte','fb-victoria','fb-elizabeth','fb-margaret','fb-alice',
+                   'mb-arthur','mb-oliver','mb-henry','mb-frederick','mb-edward']
+                   .indexOf(voiceProfile.id) % 5;
+      return { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: voices[idx] };
+    }
     case 'business':
     case 'chorus':
     case 'enterprise':
-    case 'hydra':
-      return { provider: 'xai' };
+    case 'hydra': {
+      const xaiFemale = ['eve', 'ara', 'eve', 'ara', 'eve'];
+      const xaiMale   = ['rex', 'sal', 'leo', 'rex', 'sal'];
+      const all = ['fa-sophia','fa-emma','fa-olivia','fa-ava','fa-isabella',
+                   'ma-james','ma-william','ma-alexander','ma-daniel','ma-benjamin',
+                   'fb-charlotte','fb-victoria','fb-elizabeth','fb-margaret','fb-alice',
+                   'mb-arthur','mb-oliver','mb-henry','mb-frederick','mb-edward'];
+      const idx = all.indexOf(voiceProfile.id) % 5;
+      const voice = voiceProfile.gender === 'female' ? xaiFemale[idx] : xaiMale[idx];
+      return { provider: 'xai', voice };
+    }
     default:
-      return {};
+      // Free / admin — AWS Polly standard, no engine param needed
+      return { voice: voiceProfile.puterVoice };
   }
 }
 
@@ -75,7 +101,7 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
     await ensurePuterAuth();
     const puter = getPuter();
     const { user } = useAppStore.getState();
-    const options = getPuterOptions(user?.role === 'admin' ? 'free' : (user?.plan ?? 'free'));
+    const options = getPuterOptions(user?.role === 'admin' ? 'free' : (user?.plan ?? 'free'), voiceProfile);
 
     console.log(`[TTS Preview] Requesting Puter preview for: ${voiceId}`, options);
     const audio = await puter.ai.txt2speech(voiceProfile.previewText, options);
@@ -307,7 +333,7 @@ export async function convertTextToAudio(
 
   await ensurePuterAuth();
   const puter = getPuter();
-  const ttsOptions = getPuterOptions(plan);
+  const ttsOptions = getPuterOptions(plan, voiceProfile);
   const chunks = splitTextIntoChunks(text);
 
   if (chunks.length === 0) {
