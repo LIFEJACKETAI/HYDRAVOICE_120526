@@ -29,29 +29,104 @@ import type { PuterTTSOptions } from '../types/puter';
 
 let currentPreviewAudio: HTMLAudioElement | null = null;
 let currentPreviewVoiceId: string | null = null;
+let currentSpeechUtterance: SpeechSynthesisUtterance | null = null;
 
-// Free-tier preview via our proxy → StreamElements → AWS Polly.
-// Proxied server-side to avoid CORS; cached for 1h.
-async function playStreamElementsPreview(voiceProfile: VoiceProfile): Promise<void> {
-  const params = new URLSearchParams({
-    voice: voiceProfile.puterVoice,
-    text: voiceProfile.previewText,
+// Load browser speech synthesis voices — they're delivered async on first call.
+function loadSpeechVoices(): Promise<SpeechSynthesisVoice[]> {
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) return Promise.resolve(voices);
+  return new Promise((resolve) => {
+    const onChanged = () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onChanged);
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+      resolve(window.speechSynthesis.getVoices());
+    }, 2500);
   });
-  const url = `/api/tts/preview-stream?${params.toString()}`;
+}
 
-  const audio = new Audio(url);
-  audio.playbackRate = voiceProfile.ttsSpeed;
-  currentPreviewAudio = audio;
-  currentPreviewVoiceId = voiceProfile.id;
+// Filter to voices that actually sound good.
+// eSpeak (Linux fallback) and Orca screen-reader voices are excluded.
+function qualitySpeechVoices(all: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
+  return all.filter((v) => {
+    const name = v.name.toLowerCase();
+    const uri  = v.voiceURI.toLowerCase();
+    const isRobotic =
+      name.includes('espeak') || uri.includes('espeak') ||
+      name.includes('orca')   || uri.includes('orca')   ||
+      uri.startsWith('urn:moz-tts:sapi:') ||   // Firefox eSpeak wrapper
+      (name.startsWith('en ') && !name.includes('google') && !name.includes('microsoft') && !name.includes('apple'));
+    const isEnglish = v.lang.startsWith('en');
+    return !isRobotic && isEnglish;
+  });
+}
+
+// Pick the best available voice for a given profile.
+function selectSpeechVoice(
+  voices: SpeechSynthesisVoice[],
+  voiceProfile: VoiceProfile,
+): SpeechSynthesisVoice | undefined {
+  const { accent, browserVoice } = voiceProfile;
+  const targetLangs = accent === 'British' ? ['en-GB', 'en_GB'] : ['en-US', 'en_US'];
+  const matchesLang = (v: SpeechSynthesisVoice) => targetLangs.some((l) => v.lang.startsWith(l));
+
+  // Try each hint in priority order
+  for (const hint of browserVoice.voiceHints) {
+    const match = voices.find(
+      (v) => v.name.toLowerCase().includes(hint.toLowerCase()) && matchesLang(v),
+    );
+    if (match) return match;
+  }
+  // Fallback: any voice with the right accent
+  const accentMatch = voices.find(matchesLang);
+  if (accentMatch) return accentMatch;
+  // Last resort: any quality English voice
+  return voices[0];
+}
+
+// Browser TTS preview using the Web Speech API.
+// Chrome/Safari/Edge provide Google, Apple, and Microsoft neural voices which
+// sound excellent. eSpeak (Linux/Firefox) is intentionally filtered out.
+async function playBrowserTTSPreview(voiceProfile: VoiceProfile): Promise<void> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    throw new Error('Speech synthesis is not supported in this browser.');
+  }
+
+  const allVoices = await loadSpeechVoices();
+  const quality   = qualitySpeechVoices(allVoices);
+
+  if (quality.length === 0) {
+    throw new Error(
+      'No high-quality voices found. For voice previews, please use Chrome or Safari.',
+    );
+  }
+
+  const voice = selectSpeechVoice(quality, voiceProfile);
+  if (!voice) throw new Error('No suitable voice found for preview.');
 
   return new Promise<void>((resolve, reject) => {
-    audio.onended = () => { currentPreviewVoiceId = null; currentPreviewAudio = null; resolve(); };
-    audio.onerror = () => {
-      currentPreviewVoiceId = null;
-      currentPreviewAudio = null;
-      reject(new Error('Voice preview failed'));
+    const utterance = new SpeechSynthesisUtterance(voiceProfile.previewText);
+    utterance.voice  = voice;
+    utterance.lang   = voice.lang;
+    utterance.rate   = voiceProfile.browserVoice.rate;
+    utterance.pitch  = voiceProfile.browserVoice.pitch;
+    utterance.volume = 1;
+
+    utterance.onend   = () => { currentSpeechUtterance = null; currentPreviewVoiceId = null; resolve(); };
+    utterance.onerror = (e) => {
+      currentSpeechUtterance = null;
+      currentPreviewVoiceId  = null;
+      reject(new Error(`Speech synthesis error: ${e.error}`));
     };
-    audio.play().catch(reject);
+
+    currentSpeechUtterance = utterance;
+    currentPreviewVoiceId  = voiceProfile.id;
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
   });
 }
 
@@ -122,44 +197,14 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
     return;
   }
 
-  const { user } = useAppStore.getState();
-  const plan = user?.role === 'admin' ? 'free' : (user?.plan ?? 'free');
-  const isFree = plan === 'free' || plan === 'echo';
-
-  // Free / admin: use StreamElements (real AWS Polly, no credits needed)
-  if (isFree) {
-    console.log(`[TTS Preview] StreamElements preview for: ${voiceId} (${voiceProfile.puterVoice})`);
-    return playStreamElementsPreview(voiceProfile);
-  }
-
-  // Paid tiers: use Puter for higher-quality engine
+  // Voice previews always use the browser's built-in speech synthesis.
+  // This costs no Puter credits and works instantly.
+  // Chrome/Safari/Edge provide high-quality Google, Apple, and Microsoft voices.
   try {
-    await ensurePuterAuth();
-    const puter = getPuter();
-    const options = getPuterOptions(plan, voiceProfile);
-
-    console.log(`[TTS Preview] Puter preview for: ${voiceId}`, options);
-    const audio = await puter.ai.txt2speech(voiceProfile.previewText, options);
-
-    audio.playbackRate = voiceProfile.ttsSpeed;
-    currentPreviewAudio = audio;
-    currentPreviewVoiceId = voiceId;
-
-    return new Promise<void>((resolve, reject) => {
-      audio.onended = () => { currentPreviewVoiceId = null; resolve(); };
-      audio.onerror = () => {
-        currentPreviewVoiceId = null;
-        currentPreviewAudio = null;
-        reject(new Error('Voice preview playback error'));
-      };
-      audio.play().catch((err) => {
-        console.warn('[TTS Preview] Autoplay blocked:', err);
-        resolve();
-      });
-    });
+    console.log(`[TTS Preview] Browser TTS preview for: ${voiceId}`);
+    return await playBrowserTTSPreview(voiceProfile);
   } catch (error) {
     currentPreviewVoiceId = null;
-    currentPreviewAudio = null;
     console.error('[TTS Preview] Error:', error);
     throw error;
   }
@@ -171,19 +216,22 @@ export function stopVoicePreview(): void {
     currentPreviewAudio.currentTime = 0;
     currentPreviewAudio = null;
   }
+  if (currentSpeechUtterance && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    currentSpeechUtterance = null;
+  }
   currentPreviewVoiceId = null;
 }
 
 export function isVoicePreviewPlaying(voiceId: string): boolean {
-  return (
-    currentPreviewVoiceId === voiceId &&
-    currentPreviewAudio !== null &&
-    !currentPreviewAudio.paused
-  );
+  if (currentPreviewVoiceId !== voiceId) return false;
+  if (currentPreviewAudio) return !currentPreviewAudio.paused;
+  if (currentSpeechUtterance) return typeof window !== 'undefined' && window.speechSynthesis.speaking;
+  return false;
 }
 
 export function isBrowserTTSAvailable(): boolean {
-  return typeof window !== 'undefined' && !!window.puter;
+  return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
 
 // ═══════════════════════════════════════════════════════════════════
