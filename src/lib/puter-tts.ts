@@ -29,6 +29,58 @@ import type { PuterTTSOptions } from '../types/puter';
 
 let currentPreviewAudio: HTMLAudioElement | null = null;
 let currentPreviewVoiceId: string | null = null;
+let currentPreviewUtterance: SpeechSynthesisUtterance | null = null;
+
+// Resolve voices list — browsers fire voiceschanged async on first load
+function getWebSpeechVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) return resolve(voices);
+    window.speechSynthesis.addEventListener('voiceschanged', () => {
+      resolve(window.speechSynthesis.getVoices());
+    }, { once: true });
+  });
+}
+
+async function playWebSpeechPreview(voiceProfile: VoiceProfile): Promise<void> {
+  window.speechSynthesis.cancel();
+
+  const voices = await getWebSpeechVoices();
+  const { lang, voiceHints, pitch, rate } = voiceProfile.browserVoice;
+
+  let matched: SpeechSynthesisVoice | undefined;
+  for (const hint of voiceHints) {
+    matched = voices.find(
+      (v) => v.name.toLowerCase().includes(hint.toLowerCase()) && v.lang.startsWith(lang.split('-')[0])
+    );
+    if (matched) break;
+  }
+  // fallback: any voice matching the language
+  if (!matched) matched = voices.find((v) => v.lang.startsWith(lang.split('-')[0]));
+
+  const utterance = new SpeechSynthesisUtterance(voiceProfile.previewText);
+  utterance.lang = lang;
+  utterance.pitch = pitch;
+  utterance.rate = rate;
+  if (matched) utterance.voice = matched;
+
+  currentPreviewUtterance = utterance;
+  currentPreviewVoiceId = voiceProfile.id;
+
+  return new Promise<void>((resolve) => {
+    utterance.onend = () => {
+      currentPreviewVoiceId = null;
+      currentPreviewUtterance = null;
+      resolve();
+    };
+    utterance.onerror = () => {
+      currentPreviewVoiceId = null;
+      currentPreviewUtterance = null;
+      resolve(); // don't throw — some browsers fire onerror on cancel
+    };
+    window.speechSynthesis.speak(utterance);
+  });
+}
 
 function getPuter(): Puter {
   if (typeof window === 'undefined' || !window.puter) {
@@ -97,13 +149,23 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
     return;
   }
 
+  const { user } = useAppStore.getState();
+  const plan = user?.role === 'admin' ? 'free' : (user?.plan ?? 'free');
+  const isFree = plan === 'free' || plan === 'echo';
+
+  // Free / admin: use browser Web Speech API — no credits, no Puter sign-in needed
+  if (isFree) {
+    console.log(`[TTS Preview] Web Speech API for: ${voiceId}`);
+    return playWebSpeechPreview(voiceProfile);
+  }
+
+  // Paid tiers: use Puter for higher-quality engine
   try {
     await ensurePuterAuth();
     const puter = getPuter();
-    const { user } = useAppStore.getState();
-    const options = getPuterOptions(user?.role === 'admin' ? 'free' : (user?.plan ?? 'free'), voiceProfile);
+    const options = getPuterOptions(plan, voiceProfile);
 
-    console.log(`[TTS Preview] Requesting Puter preview for: ${voiceId}`, options);
+    console.log(`[TTS Preview] Puter preview for: ${voiceId}`, options);
     const audio = await puter.ai.txt2speech(voiceProfile.previewText, options);
 
     audio.playbackRate = voiceProfile.ttsSpeed;
@@ -111,17 +173,12 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
     currentPreviewVoiceId = voiceId;
 
     return new Promise<void>((resolve, reject) => {
-      audio.onended = () => {
-        currentPreviewVoiceId = null;
-        resolve();
-      };
-
+      audio.onended = () => { currentPreviewVoiceId = null; resolve(); };
       audio.onerror = () => {
         currentPreviewVoiceId = null;
         currentPreviewAudio = null;
         reject(new Error('Voice preview playback error'));
       };
-
       audio.play().catch((err) => {
         console.warn('[TTS Preview] Autoplay blocked:', err);
         resolve();
@@ -141,15 +198,20 @@ export function stopVoicePreview(): void {
     currentPreviewAudio.currentTime = 0;
     currentPreviewAudio = null;
   }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  currentPreviewUtterance = null;
   currentPreviewVoiceId = null;
 }
 
 export function isVoicePreviewPlaying(voiceId: string): boolean {
-  return (
-    currentPreviewVoiceId === voiceId &&
-    currentPreviewAudio !== null &&
-    !currentPreviewAudio.paused
-  );
+  if (currentPreviewVoiceId !== voiceId) return false;
+  if (currentPreviewAudio) return !currentPreviewAudio.paused;
+  if (currentPreviewUtterance && typeof window !== 'undefined') {
+    return window.speechSynthesis.speaking;
+  }
+  return false;
 }
 
 export function isBrowserTTSAvailable(): boolean {
