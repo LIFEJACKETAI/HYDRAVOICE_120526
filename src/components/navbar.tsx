@@ -20,6 +20,7 @@ import { SignUpModal } from '@/components/auth/sign-up-modal'
 const navLinks: { label: string; page: PageType }[] = [
   { label: 'Home', page: 'home' },
   { label: 'Create', page: 'create' },
+  { label: 'How It Works', page: 'how-it-works' },
   { label: 'Pricing', page: 'pricing' },
 ]
 

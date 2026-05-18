@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type PageType = 'home' | 'create' | 'pricing' | 'account' | 'admin'
+export type PageType = 'home' | 'create' | 'pricing' | 'how-it-works' | 'account' | 'admin'
 
 interface User {
   id: string

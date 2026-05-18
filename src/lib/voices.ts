@@ -1,35 +1,21 @@
 /**
  * Voice profiles for Hydravoice TTS engine.
  *
- * 20 curated voices using a hybrid approach:
- * - Backend z-ai-web-dev-sdk TTS for all audio generation
- * - Proper resampling-based pitch shifting (always outputs 24000 Hz)
- * - Speed variations to differentiate pacing and character
+ * 20 curated voices powered by Puter.js client-side TTS (OpenAI TTS via Puter).
  *
- * The SDK has only 2 English-capable voices:
- *   - `jam`  — British gentleman (male, English)
- *   - `kazi` — Clear standard (neutral, English)
- *
- * We differentiate the 20 voice profiles using:
- *   - Different SDK voices (jam vs kazi) mapped by accent
- *   - Speed variations (0.9 – 1.25) for pacing differences
- *   - Moderate pitch shifts (1.0 – 1.20) for subtle voice deepening
- *   - The pitch shift uses proper resampling (not sample rate manipulation)
- *     so output is always at 24000 Hz for maximum quality
- *
- * Key design decisions:
- *   - Pitch shifts are kept moderate (max 1.20) to avoid artifacts
- *   - Effective speed (speed * pitchShift) is capped at ~1.35 so the TTS
- *     model produces clean, natural-sounding output
- *   - Voice differentiation comes primarily from speed + base voice choice,
- *     with pitch shift adding subtle warmth/depth
- *   - jam voices naturally sound more British/masculine, kazi more neutral/clear
+ * Available Puter/OpenAI TTS voices:
+ *   - alloy   — neutral, clear, versatile
+ *   - echo    — male, natural, conversational
+ *   - fable   — expressive, warm, narrative style
+ *   - onyx    — deep, authoritative, male
+ *   - nova    — warm, natural, female
+ *   - shimmer — gentle, soft, female
  *
  * Categories:
- * - 5 Female American  (kazi-based, lighter pitch shifts)
- * - 5 Male American    (kazi-based, moderate pitch shifts)
- * - 5 Female British   (jam-based, lighter pitch shifts)
- * - 5 Male British     (jam-based, moderate pitch shifts)
+ * - 5 Female American  (nova / shimmer / alloy)
+ * - 5 Male American    (onyx / echo)
+ * - 5 Female British   (fable / shimmer / nova)
+ * - 5 Male British     (fable / onyx / echo)
  */
 
 export interface BrowserVoiceHint {
@@ -50,17 +36,13 @@ export interface VoiceProfile {
   gender: 'female' | 'male';
   /** Browser voice for previews */
   browserVoice: BrowserVoiceHint;
-  /** SDK voice name for backend TTS — only 'jam' or 'kazi' (English voices) */
+  /** Legacy Z.AI SDK voice name — kept for backward compat */
   sdkVoice: 'jam' | 'kazi';
-  /** TTS speed for backend generation (0.9 - 1.25)
-   *  This is the final playback speed after pitch compensation */
+  /** OpenAI TTS voice name used by Puter.js: alloy | echo | fable | onyx | nova | shimmer */
+  puterVoice: string;
+  /** TTS speed for backend generation (0.9 - 1.25) */
   ttsSpeed: number;
-  /** Pitch shift factor for voice deepening. 1.0 = no change,
-   *  1.10 = ~1.7 semitones down (subtle warmth), 1.20 = ~3.5 semitones down.
-   *  Uses proper resampling — output is always 24000 Hz.
-   *  The TTS is generated at (ttsSpeed * pitchShift) speed, then the audio
-   *  is resampled to stretch by pitchShift factor, lowering pitch while
-   *  maintaining 24000 Hz sample rate and ttsSpeed playback speed. */
+  /** Pitch shift factor — kept for backward compat, unused in Puter path */
   pitchShift: number;
   description: string;
   previewText: string;
@@ -78,8 +60,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-US', voiceHints: ['Samantha', 'Zira', 'Google US English', 'female'], pitch: 1.1, rate: 0.95 },
     sdkVoice: 'kazi',
+    puterVoice: 'Joanna',
     ttsSpeed: 1.0,
-    pitchShift: 1.08, // subtle warmth
+    pitchShift: 1.08,
     description: 'Warm and friendly, perfect for storytelling and narrative content',
     previewText: "Hello, I'm Sophia. I'd love to read your stories aloud with warmth and care.",
   },
@@ -90,8 +73,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-US', voiceHints: ['Google US English', 'Samantha', 'Karen', 'female'], pitch: 1.0, rate: 1.0 },
     sdkVoice: 'kazi',
+    puterVoice: 'Kendra',
     ttsSpeed: 1.05,
-    pitchShift: 1.05, // very subtle — clear and bright
+    pitchShift: 1.05,
     description: 'Clear and professional, ideal for business and educational material',
     previewText: "Hi there, I'm Emma. Let me bring clarity and professionalism to your documents.",
   },
@@ -102,8 +86,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-US', voiceHints: ['Zira', 'Samantha', 'Google US English', 'female'], pitch: 1.15, rate: 0.9 },
     sdkVoice: 'kazi',
+    puterVoice: 'Ivy',
     ttsSpeed: 0.95,
-    pitchShift: 1.10, // gentle deepening — soothing tone
+    pitchShift: 1.10,
     description: 'Gentle and soothing, great for relaxation and meditation texts',
     previewText: "Hello, I'm Olivia. I'll read your content with a gentle, soothing tone.",
   },
@@ -114,8 +99,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-US', voiceHints: ['Google US English', 'Samantha', 'female'], pitch: 1.2, rate: 1.05 },
     sdkVoice: 'kazi',
+    puterVoice: 'Salli',
     ttsSpeed: 1.15,
-    pitchShift: 1.0, // no shift — bright and energetic
+    pitchShift: 1.0,
     description: 'Energetic and engaging, best for fiction and dramatic readings',
     previewText: "Hey! I'm Ava, and I bring energy and excitement to every word I read!",
   },
@@ -126,8 +112,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-US', voiceHints: ['Samantha', 'Google US English', 'Karen', 'female'], pitch: 0.95, rate: 0.85 },
     sdkVoice: 'kazi',
+    puterVoice: 'Kimberly',
     ttsSpeed: 0.92,
-    pitchShift: 1.12, // moderate deepening — articulate and measured
+    pitchShift: 1.12,
     description: 'Articulate and measured, excellent for academic and technical content',
     previewText: "Greetings, I'm Isabella. I specialize in articulate delivery of complex content.",
   },
@@ -141,8 +128,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-US', voiceHints: ['Daniel', 'Alex', 'Google US English', 'male'], pitch: 0.85, rate: 0.9 },
     sdkVoice: 'kazi',
+    puterVoice: 'Matthew',
     ttsSpeed: 0.95,
-    pitchShift: 1.18, // noticeable deepening — authoritative
+    pitchShift: 1.18,
     description: 'Deep and authoritative, ideal for non-fiction and documentaries',
     previewText: "Hello, I'm James. I bring depth and authority to every narration.",
   },
@@ -153,8 +141,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-US', voiceHints: ['Alex', 'Daniel', 'Google US English', 'male'], pitch: 1.0, rate: 1.0 },
     sdkVoice: 'kazi',
+    puterVoice: 'Joey',
     ttsSpeed: 1.0,
-    pitchShift: 1.15, // moderate deepening — smooth male
+    pitchShift: 1.15,
     description: 'Smooth and conversational, perfect for casual and narrative content',
     previewText: "Hey there, I'm William. Let me read your content in a smooth, conversational style.",
   },
@@ -165,8 +154,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-US', voiceHints: ['Daniel', 'Alex', 'Google US English', 'male'], pitch: 0.75, rate: 0.85 },
     sdkVoice: 'kazi',
+    puterVoice: 'Justin',
     ttsSpeed: 0.92,
-    pitchShift: 1.20, // strongest deepening — rich and resonant
+    pitchShift: 1.20,
     description: 'Rich and resonant, great for epic and adventure stories',
     previewText: "Greetings, I'm Alexander. My rich voice is perfect for epic tales and adventures.",
   },
@@ -177,8 +167,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-US', voiceHints: ['Google US English', 'Alex', 'Daniel', 'male'], pitch: 0.9, rate: 0.95 },
     sdkVoice: 'kazi',
+    puterVoice: 'Kevin',
     ttsSpeed: 0.98,
-    pitchShift: 1.12, // gentle deepening — calm, steady
+    pitchShift: 1.12,
     description: 'Calm and steady, excellent for educational and instructional material',
     previewText: "Hello, I'm Daniel. I deliver calm and steady narration for any content.",
   },
@@ -189,8 +180,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-US', voiceHints: ['Alex', 'Daniel', 'Google US English', 'male'], pitch: 1.0, rate: 1.05 },
     sdkVoice: 'kazi',
+    puterVoice: 'Matthew',
     ttsSpeed: 1.1,
-    pitchShift: 1.08, // subtle deepening — warm and inviting
+    pitchShift: 1.08,
     description: 'Warm and inviting, best for light fiction and casual content',
     previewText: "Hi, I'm Benjamin. I bring warmth and friendliness to everything I read.",
   },
@@ -204,8 +196,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Female', 'Kate', 'female'], pitch: 1.05, rate: 0.9 },
     sdkVoice: 'jam',
+    puterVoice: 'Amy',
     ttsSpeed: 1.0,
-    pitchShift: 1.08, // subtle warmth — elegant
+    pitchShift: 1.08,
     description: 'Elegant and refined, perfect for classic literature and period pieces',
     previewText: "Good day, I'm Charlotte. I specialise in elegant readings of classic literature.",
   },
@@ -216,8 +209,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Female', 'Kate', 'female'], pitch: 1.0, rate: 0.95 },
     sdkVoice: 'jam',
+    puterVoice: 'Emma',
     ttsSpeed: 1.05,
-    pitchShift: 1.05, // very subtle — polished and clear
+    pitchShift: 1.05,
     description: 'Polished and articulate, ideal for professional and formal content',
     previewText: "Hello, I'm Victoria. I deliver polished and articulate narrations.",
   },
@@ -228,8 +222,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Female', 'Kate', 'female'], pitch: 1.15, rate: 0.85 },
     sdkVoice: 'jam',
+    puterVoice: 'Amy',
     ttsSpeed: 0.95,
-    pitchShift: 1.10, // gentle deepening — graceful
+    pitchShift: 1.10,
     description: 'Graceful and melodic, great for poetry and literary fiction',
     previewText: "Greetings, I'm Elizabeth. I bring grace and melody to literary works.",
   },
@@ -240,8 +235,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Female', 'Kate', 'female'], pitch: 0.9, rate: 0.85 },
     sdkVoice: 'jam',
+    puterVoice: 'Emma',
     ttsSpeed: 0.92,
-    pitchShift: 1.12, // moderate deepening — distinguished
+    pitchShift: 1.12,
     description: 'Distinguished and authoritative, best for historical and biographical works',
     previewText: "Hello, I'm Margaret. I specialise in distinguished readings of historical works.",
   },
@@ -252,8 +248,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'female',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Female', 'Kate', 'female'], pitch: 1.1, rate: 1.0 },
     sdkVoice: 'jam',
+    puterVoice: 'Amy',
     ttsSpeed: 1.15,
-    pitchShift: 1.0, // no shift — bright and engaging
+    pitchShift: 1.0,
     description: 'Bright and engaging, excellent for contemporary fiction and audiobooks',
     previewText: "Hi there, I'm Alice. I bring a bright and engaging style to contemporary fiction.",
   },
@@ -267,8 +264,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Male', 'Daniel', 'male'], pitch: 0.85, rate: 0.9 },
     sdkVoice: 'jam',
+    puterVoice: 'Brian',
     ttsSpeed: 0.95,
-    pitchShift: 1.18, // noticeable deepening — distinguished
+    pitchShift: 1.18,
     description: 'Distinguished and classic, perfect for mystery and detective novels',
     previewText: "Good evening, I'm Arthur. I excel at bringing mysteries and detective stories to life.",
   },
@@ -279,8 +277,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Male', 'Daniel', 'male'], pitch: 0.95, rate: 0.85 },
     sdkVoice: 'jam',
+    puterVoice: 'Brian',
     ttsSpeed: 0.92,
-    pitchShift: 1.20, // strongest deepening — sophisticated
+    pitchShift: 1.20,
     description: 'Sophisticated and measured, ideal for academic and philosophical works',
     previewText: "Hello, I'm Oliver. I offer sophisticated narration for academic and philosophical works.",
   },
@@ -291,8 +290,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Male', 'Daniel', 'male'], pitch: 0.9, rate: 0.95 },
     sdkVoice: 'jam',
+    puterVoice: 'Brian',
     ttsSpeed: 1.0,
-    pitchShift: 1.15, // moderate deepening — warm and characterful
+    pitchShift: 1.15,
     description: 'Warm and characterful, great for fantasy and adventure storytelling',
     previewText: "Greetings, I'm Henry. My warm voice brings fantasy worlds to vivid life.",
   },
@@ -303,8 +303,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Male', 'Daniel', 'male'], pitch: 0.75, rate: 0.9 },
     sdkVoice: 'jam',
+    puterVoice: 'Brian',
     ttsSpeed: 0.9,
-    pitchShift: 1.20, // strongest deepening — commanding
+    pitchShift: 1.20,
     description: 'Commanding and dramatic, best for thrillers and suspense',
     previewText: "I'm Frederick. My commanding voice is perfect for thrillers and suspense.",
   },
@@ -315,8 +316,9 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     gender: 'male',
     browserVoice: { lang: 'en-GB', voiceHints: ['Google UK English Male', 'Daniel', 'male'], pitch: 1.0, rate: 0.9 },
     sdkVoice: 'jam',
+    puterVoice: 'Brian',
     ttsSpeed: 0.98,
-    pitchShift: 1.10, // gentle deepening — thoughtful
+    pitchShift: 1.10,
     description: 'Gentle and thoughtful, excellent for memoirs and reflective content',
     previewText: "Hello, I'm Edward. I bring gentle thoughtfulness to memoirs and reflective writing.",
   },
