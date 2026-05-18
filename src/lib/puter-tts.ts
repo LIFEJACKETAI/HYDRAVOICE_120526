@@ -89,7 +89,8 @@ function selectSpeechVoice(
 
 // Browser TTS preview using the Web Speech API.
 // Chrome/Safari/Edge provide Google, Apple, and Microsoft neural voices which
-// sound excellent. eSpeak (Linux/Firefox) is intentionally filtered out.
+// sound excellent. Falls back to any available English voice (e.g. eSpeak on
+// Linux/Firefox) so the button always does something rather than hard-failing.
 async function playBrowserTTSPreview(voiceProfile: VoiceProfile): Promise<void> {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     throw new Error('Speech synthesis is not supported in this browser.');
@@ -98,13 +99,18 @@ async function playBrowserTTSPreview(voiceProfile: VoiceProfile): Promise<void> 
   const allVoices = await loadSpeechVoices();
   const quality   = qualitySpeechVoices(allVoices);
 
-  if (quality.length === 0) {
+  // Prefer high-quality voices; fall back to any English voice so Firefox/Linux
+  // users (who only have eSpeak) still hear something rather than an error.
+  const englishFallback = allVoices.filter((v) => v.lang.startsWith('en'));
+  const pool = quality.length > 0 ? quality : englishFallback;
+
+  if (pool.length === 0) {
     throw new Error(
-      'No high-quality voices found. For voice previews, please use Chrome or Safari.',
+      'No voices available. Please try Chrome or Safari for voice previews.',
     );
   }
 
-  const voice = selectSpeechVoice(quality, voiceProfile);
+  const voice = selectSpeechVoice(pool, voiceProfile);
   if (!voice) throw new Error('No suitable voice found for preview.');
 
   return new Promise<void>((resolve, reject) => {
