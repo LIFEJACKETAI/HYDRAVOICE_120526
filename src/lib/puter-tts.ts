@@ -29,56 +29,27 @@ import type { PuterTTSOptions } from '../types/puter';
 
 let currentPreviewAudio: HTMLAudioElement | null = null;
 let currentPreviewVoiceId: string | null = null;
-let currentPreviewUtterance: SpeechSynthesisUtterance | null = null;
 
-// Resolve voices list — browsers fire voiceschanged async on first load
-function getWebSpeechVoices(): Promise<SpeechSynthesisVoice[]> {
-  return new Promise((resolve) => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) return resolve(voices);
-    window.speechSynthesis.addEventListener('voiceschanged', () => {
-      resolve(window.speechSynthesis.getVoices());
-    }, { once: true });
-  });
-}
+// Free-tier preview via StreamElements — serves real AWS Polly voices,
+// no API key, no sign-in, sounds identical to standard Puter tier.
+async function playStreamElementsPreview(voiceProfile: VoiceProfile): Promise<void> {
+  const voice = voiceProfile.puterVoice; // AWS Polly name e.g. 'Joanna'
+  const text = encodeURIComponent(voiceProfile.previewText);
+  const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${text}`;
 
-async function playWebSpeechPreview(voiceProfile: VoiceProfile): Promise<void> {
-  window.speechSynthesis.cancel();
-
-  const voices = await getWebSpeechVoices();
-  const { lang, voiceHints, pitch, rate } = voiceProfile.browserVoice;
-
-  let matched: SpeechSynthesisVoice | undefined;
-  for (const hint of voiceHints) {
-    matched = voices.find(
-      (v) => v.name.toLowerCase().includes(hint.toLowerCase()) && v.lang.startsWith(lang.split('-')[0])
-    );
-    if (matched) break;
-  }
-  // fallback: any voice matching the language
-  if (!matched) matched = voices.find((v) => v.lang.startsWith(lang.split('-')[0]));
-
-  const utterance = new SpeechSynthesisUtterance(voiceProfile.previewText);
-  utterance.lang = lang;
-  utterance.pitch = pitch;
-  utterance.rate = rate;
-  if (matched) utterance.voice = matched;
-
-  currentPreviewUtterance = utterance;
+  const audio = new Audio(url);
+  audio.playbackRate = voiceProfile.ttsSpeed;
+  currentPreviewAudio = audio;
   currentPreviewVoiceId = voiceProfile.id;
 
-  return new Promise<void>((resolve) => {
-    utterance.onend = () => {
+  return new Promise<void>((resolve, reject) => {
+    audio.onended = () => { currentPreviewVoiceId = null; currentPreviewAudio = null; resolve(); };
+    audio.onerror = () => {
       currentPreviewVoiceId = null;
-      currentPreviewUtterance = null;
-      resolve();
+      currentPreviewAudio = null;
+      reject(new Error('Voice preview failed'));
     };
-    utterance.onerror = () => {
-      currentPreviewVoiceId = null;
-      currentPreviewUtterance = null;
-      resolve(); // don't throw — some browsers fire onerror on cancel
-    };
-    window.speechSynthesis.speak(utterance);
+    audio.play().catch(reject);
   });
 }
 
@@ -153,10 +124,10 @@ export async function playVoicePreview(voiceId: string): Promise<void> {
   const plan = user?.role === 'admin' ? 'free' : (user?.plan ?? 'free');
   const isFree = plan === 'free' || plan === 'echo';
 
-  // Free / admin: use browser Web Speech API — no credits, no Puter sign-in needed
+  // Free / admin: use StreamElements (real AWS Polly, no credits needed)
   if (isFree) {
-    console.log(`[TTS Preview] Web Speech API for: ${voiceId}`);
-    return playWebSpeechPreview(voiceProfile);
+    console.log(`[TTS Preview] StreamElements preview for: ${voiceId} (${voiceProfile.puterVoice})`);
+    return playStreamElementsPreview(voiceProfile);
   }
 
   // Paid tiers: use Puter for higher-quality engine
@@ -198,20 +169,15 @@ export function stopVoicePreview(): void {
     currentPreviewAudio.currentTime = 0;
     currentPreviewAudio = null;
   }
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-  currentPreviewUtterance = null;
   currentPreviewVoiceId = null;
 }
 
 export function isVoicePreviewPlaying(voiceId: string): boolean {
-  if (currentPreviewVoiceId !== voiceId) return false;
-  if (currentPreviewAudio) return !currentPreviewAudio.paused;
-  if (currentPreviewUtterance && typeof window !== 'undefined') {
-    return window.speechSynthesis.speaking;
-  }
-  return false;
+  return (
+    currentPreviewVoiceId === voiceId &&
+    currentPreviewAudio !== null &&
+    !currentPreviewAudio.paused
+  );
 }
 
 export function isBrowserTTSAvailable(): boolean {
