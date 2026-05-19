@@ -81,7 +81,7 @@ Edit `.env.local` with your values:
 ```env
 NEXTAUTH_SECRET=your-random-secret-at-least-32-chars
 NEXTAUTH_URL=http://localhost:3001
-DATABASE_URL=file:./db/database.sqlite
+DATABASE_URL=file:../db/custom.db
 
 # OAuth — leave blank to disable Google/Microsoft buttons
 GOOGLE_ID=
